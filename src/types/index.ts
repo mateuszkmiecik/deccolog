@@ -23,7 +23,7 @@ export interface SimilarityResult {
 }
 
 export interface FingerprintResult {
-  readonly fingerprint: ReadonlyArray<number>
+  readonly fingerprint: number[];
   readonly canvas: string
 }
 

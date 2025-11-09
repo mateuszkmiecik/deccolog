@@ -11,7 +11,7 @@ interface SyncSession {
 class CloudSyncService {
   private readonly API_BASE = import.meta.env.PROD 
     ? ''  // Use relative URL in production (same origin)
-    : 'http://localhost:3002'  // Use localhost in development
+    : import.meta.env.DEV_API_URL ?? 'http://localhost:3002'  // Use localhost in development
 
   async uploadCollection(items: CollectionItem[]): Promise<string> {
     try {

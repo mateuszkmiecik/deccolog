@@ -7,11 +7,11 @@ interface ItemCardProps {
 
 export function ItemCard({ item, onImageClick }: ItemCardProps) {
   return (
-    <div className="flex gap-4 p-4 border rounded-lg">
+    <div className="flex gap-4 p-2 rounded-lg flex-col">
       <img
         src={item.image256}
         alt={item.name}
-        className="w-16 h-16 rounded-md object-cover bg-black cursor-pointer hover:opacity-80 transition-opacity"
+        className="w-full aspect-square rounded-md shadow-lg object-cover bg-white cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => onImageClick?.(item)}
       />
       <div className="flex-1">

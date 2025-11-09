@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"bunx --bun vite\" \"bun run server.ts\"",
+    "dev": "concurrently \"bun run dev:client\" \"bun run dev:server\"",
     "dev:client": "bunx --bun vite",
-    "dev:server": "bun run server.ts",
+    "dev:server": "bun run server.ts --watch",
     "build": "tsc -b && bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "test": "vitest",
@@ -24,9 +24,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-preact": "^0.552.0",
+    "nanoid": "^5.1.6",
     "preact": "^10.27.2",
-    "qrcode": "^1.5.3",
     "qr-scanner": "^1.4.2",
+    "qrcode": "^1.5.3",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7"
   },

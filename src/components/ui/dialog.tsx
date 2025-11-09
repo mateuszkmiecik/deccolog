@@ -13,7 +13,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div 
-        className="fixed inset-0 bg-black/80" 
+        className="fixed inset-0 bg-white/80" 
         onClick={() => onOpenChange?.(false)}
       />
       {children}

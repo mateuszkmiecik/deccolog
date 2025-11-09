@@ -3,11 +3,86 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { readFile } from 'fs/promises'
 import { extname } from 'path'
+import { logger } from 'hono/logger'
 
 const app = new Hono()
 
+app.use(logger())
 // In-memory storage (reset on server restart)
 const syncStore = new Map()
+
+// CORS middleware for API routes
+app.use('/api/*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}))
+
+// Upload collection
+app.post('/api/sync/upload', async (c) => {
+  try {
+    const { data } = await c.req.json()
+    const syncId = Math.random().toString(36).substring(2, 10)
+    const createdAt = Date.now()
+    const expiresAt = createdAt + 24 * 60 * 60 * 1000 // 24 hours
+
+    syncStore.set(syncId, {
+      data,
+      createdAt,
+      expiresAt
+    });
+
+    console.log('setting something else', syncId)
+
+    // Cleanup expired sessions
+    cleanupExpiredSessions()
+
+    return c.json({ success: true, syncId })
+  } catch (error) {
+    return c.json({ success: false, error: 'Upload failed' }, 500)
+  }
+})
+
+// Download collection
+app.get('/api/sync/download/:syncId', (c) => {
+  try {
+    const syncId = c.req.param('syncId')
+    const session = syncStore.get(syncId)
+
+    if (!session) {
+      return c.json({ success: false, error: 'Session not found' }, 404)
+    }
+
+    if (Date.now() > session.expiresAt) {
+      syncStore.delete(syncId)
+      return c.json({ success: false, error: 'Session expired' }, 410)
+    }
+    const responseJson = { success: true, data: session.data };
+    return c.json(responseJson)
+  } catch (error) {
+    return c.json({ success: false, error: 'Download failed' }, 500)
+  }
+})
+
+app.get('/api/list', (c) => {
+  return c.json(Array.from(syncStore.keys()));
+});
+
+// Cleanup expired sessions
+function cleanupExpiredSessions() {
+  const now = Date.now()
+  for (const [key, session] of syncStore.entries()) {
+    if (now > session.expiresAt) {
+      syncStore.delete(key)
+    }
+  }
+}
+
+// Health check endpoint
+app.get('/api/health', (c) => {
+  return c.json({ success: true, status: 'healthy', timestamp: Date.now() })
+});
+
 
 // Serve static frontend files
 app.get('/*', async (c) => {
@@ -42,72 +117,6 @@ app.get('/*', async (c) => {
       return c.text('Not Found', 404)
     }
   }
-})
-
-// CORS middleware for API routes
-app.use('/api/*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}))
-
-// Upload collection
-app.post('/api/sync/upload', async (c) => {
-  try {
-    const { data } = await c.req.json()
-    const syncId = Math.random().toString(36).substring(2, 18)
-    const createdAt = Date.now()
-    const expiresAt = createdAt + 24 * 60 * 60 * 1000 // 24 hours
-
-    syncStore.set(syncId, {
-      data,
-      createdAt,
-      expiresAt
-    })
-
-    // Cleanup expired sessions
-    cleanupExpiredSessions()
-
-    return c.json({ success: true, syncId })
-  } catch (error) {
-    return c.json({ success: false, error: 'Upload failed' }, 500)
-  }
-})
-
-// Download collection
-app.get('/api/sync/download/:syncId', (c) => {
-  try {
-    const syncId = c.req.param('syncId')
-    const session = syncStore.get(syncId)
-
-    if (!session) {
-      return c.json({ success: false, error: 'Session not found' }, 404)
-    }
-
-    if (Date.now() > session.expiresAt) {
-      syncStore.delete(syncId)
-      return c.json({ success: false, error: 'Session expired' }, 410)
-    }
-
-    return c.json({ success: true, data: session.data })
-  } catch (error) {
-    return c.json({ success: false, error: 'Download failed' }, 500)
-  }
-})
-
-// Cleanup expired sessions
-function cleanupExpiredSessions() {
-  const now = Date.now()
-  for (const [key, session] of syncStore.entries()) {
-    if (now > session.expiresAt) {
-      syncStore.delete(key)
-    }
-  }
-}
-
-// Health check endpoint
-app.get('/api/sync/download/health', (c) => {
-  return c.json({ success: true, status: 'healthy', timestamp: Date.now() })
 })
 
 // Auto-cleanup every hour

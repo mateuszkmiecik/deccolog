@@ -1,6 +1,7 @@
 import { type CollectionItem, type SimilarityResult } from '@/types'
 import { DatabaseError } from '@/lib/errors'
 import { CloudSyncService } from '@/lib/cloud-sync'
+import { nanoid } from 'nanoid'
 
 class CollectionDB {
   private db: IDBDatabase | null = null
@@ -41,7 +42,7 @@ class CollectionDB {
     if (!this.db) throw new DatabaseError('Database not initialized')
     
     try {
-      const id = crypto.randomUUID()
+      const id = nanoid();
       const createdAt = Date.now()
       const latestItem = await this.getLatestAddedItem()
       const indexNumber = latestItem ? (latestItem.indexNumber || 0) + 1 : 1

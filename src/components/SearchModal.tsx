@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'preact/hooks'
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +23,7 @@ interface SearchModalProps {
 
 export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [showCamera, setShowCamera] = useState(false)
+  const [showCamera, setShowCamera] = useState(false);
   
   const { isCameraActive, videoRef, startCamera, stopCamera } = useCamera()
   const { capturedImage, imageFingerprint, fingerprintCanvas, processImage, clearImage } = useImageProcessing()
@@ -102,20 +102,20 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
     onOpenChange(false)
   }
 
+  const toggleCameraSearch = () => {
+    setShowCamera(!showCamera)
+    if (!showCamera && !isCameraActive) {
+      startCamera()
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Search Collection
-          </DialogTitle>
-        </DialogHeader>
-        
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">        
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="search">Search items</Label>
-            <div className="relative">
+            <div className="flex gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
@@ -138,23 +138,10 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
                 </Button>
               )}
             </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowCamera(true)
-                if (!showCamera && !isCameraActive) {
-                  startCamera()
-                }
-              }}
-              className="flex items-center gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              {showCamera ? 'Hide Camera' : 'Take Photo'}
+            <Button variant='outline' size="icon" onClick={toggleCameraSearch}>
+              <Camera />
             </Button>
+            </div>
           </div>
           
           {showCamera && (

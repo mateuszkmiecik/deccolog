@@ -12,13 +12,13 @@ export function ItemList({ items }: ItemListProps) {
   return (
     <>
       <div className="space-y-4 mb-6">
-        <h2 className="text-lg font-semibold">Your Collection ({items.length})</h2>
+        {/* <h2 className="text-lg font-semibold">Your Collection ({items.length})</h2> */}
         {items.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">
             No items yet. Click the + button to add your first item!
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {items.map((item) => (
               <ItemCard 
                 key={item.id} 

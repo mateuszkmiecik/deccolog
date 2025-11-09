@@ -113,7 +113,7 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
         offsetX = (256 - drawWidth) / 2
       }
       
-      ctx.fillStyle = 'black'
+      ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, 256, 256)
       ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight)
       
@@ -168,7 +168,7 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
       onItemAdded()
     } catch (error) {
       console.error('Error adding item:', error)
-      setError('Failed to add item to collection')
+      setError('Failed to add item to collection: ' +(error as Error)['message'])
     }
   }
 

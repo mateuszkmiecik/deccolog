@@ -7,6 +7,8 @@ import { SearchModal } from '@/components/SearchModal'
 import { CloudSyncModal } from '@/components/CloudSyncModal'
 import { PlusIcon, SearchIcon, RefreshCwIcon } from 'lucide-preact'
 
+import logo from '@/assets/image.jpeg'
+
 export function App() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -36,9 +38,11 @@ export function App() {
 
   return (
     <div className="flex h-dvh flex-col items-start justify-start w-screen overflow-auto">
-      <div className="p-3">
+      <div className="p-3 mx-auto">
 
-        <h1 className="text-2xl font-bold mb-4">Collection Management System</h1>
+        <div className="mx-auto flex items-center justify-center mb-4">
+          <img src={logo} className="w-[200px]" />
+        </div>
         <div className="flex-1 overflow-auto">
           <ItemList items={items} />
         </div>
