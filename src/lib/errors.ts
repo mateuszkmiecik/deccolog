@@ -28,6 +28,12 @@ export class DatabaseError extends AppError {
   }
 }
 
+export class SyncError extends AppError {
+  constructor(message: string, userMessage = 'Sync operation failed') {
+    super(message, 'SYNC_ERROR', userMessage)
+  }
+}
+
 export function handleError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error

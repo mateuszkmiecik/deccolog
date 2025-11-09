@@ -4,12 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bunx --bun vite",
+    "dev": "concurrently \"bunx --bun vite\" \"bun run server.ts\"",
+    "dev:client": "bunx --bun vite",
+    "dev:server": "bun run server.ts",
     "build": "tsc -b && bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "docker:build": "docker build -t deccolog-app .",
+    "docker:run": "docker run -p 3002:3002 deccolog-app",
+    "docker:compose": "docker-compose up -d",
+    "docker:stop": "docker-compose down"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -19,6 +25,8 @@
     "clsx": "^2.1.1",
     "lucide-preact": "^0.552.0",
     "preact": "^10.27.2",
+    "qrcode": "^1.5.3",
+    "qr-scanner": "^1.4.2",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7"
   },
@@ -28,7 +36,11 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/preact": "^3.2.4",
     "@types/node": "^24.6.0",
+    "@types/qrcode": "^1.5.5",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.0",
+    "hono": "^4.6.12",
+    "@hono/node-server": "^1.14.5",
     "happy-dom": "^20.0.10",
     "jsdom": "^27.1.0",
     "postcss": "^8.5.6",

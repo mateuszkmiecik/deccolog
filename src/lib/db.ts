@@ -1,11 +1,13 @@
 import { type CollectionItem, type SimilarityResult } from '@/types'
 import { DatabaseError } from '@/lib/errors'
+import { CloudSyncService } from '@/lib/cloud-sync'
 
 class CollectionDB {
   private db: IDBDatabase | null = null
   private readonly DB_NAME = 'CollectionDB'
   private readonly VERSION = 1
   private readonly STORE_NAME = 'items'
+  private syncService = new CloudSyncService()
 
   async init(): Promise<void> {
     try {
@@ -139,6 +141,26 @@ class CollectionDB {
       const simB = calculateSimilarity(fingerprint, b.fingerprint)
       return simA.euclidean - simB.euclidean
     })
+  }
+
+  async uploadCollection(): Promise<string> {
+    const items = await this.getAllItems()
+    return this.syncService.uploadCollection(items)
+  }
+
+  async downloadAndMergeCollection(syncId: string): Promise<void> {
+    const downloadedItems = await this.syncService.downloadCollection(syncId)
+    
+    for (const item of downloadedItems) {
+      const existing = await this.getItem(item.id)
+      if (!existing || item.createdAt > existing.createdAt) {
+        if (existing) {
+          await this.updateItem(item.id, item)
+        } else {
+          await this.addItem(item)
+        }
+      }
+    }
   }
 }
 

@@ -4,11 +4,13 @@ import { type CollectionItem } from '@/types'
 import { ItemList } from '@/components/ItemList'
 import { AddItemModal } from '@/components/AddItemModal'
 import { SearchModal } from '@/components/SearchModal'
-import { PlusIcon, SearchIcon } from 'lucide-preact'
+import { CloudSyncModal } from '@/components/CloudSyncModal'
+import { PlusIcon, SearchIcon, RefreshCwIcon } from 'lucide-preact'
 
 export function App() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isSyncOpen, setIsSyncOpen] = useState(false)
   const [db, setDb] = useState<CollectionDB | null>(null)
   const [items, setItems] = useState<CollectionItem[]>([])
 
@@ -52,6 +54,14 @@ export function App() {
         <SearchIcon />
       </button>
 
+      {/* Fixed sync button */}
+      <button
+        onClick={() => setIsSyncOpen(true)}
+        className="fixed bottom-6 left-24 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/90 hover:scale-105 transition-all duration-200"
+      >
+        <RefreshCwIcon />
+      </button>
+
       {/* Fixed plus button with modal */}
       <button
         onClick={() => setIsModalOpen(true)}
@@ -71,6 +81,13 @@ export function App() {
         onOpenChange={setIsModalOpen}
         onItemAdded={handleItemAdded}
         db={db!}
+      />
+
+      <CloudSyncModal
+        isOpen={isSyncOpen}
+        onOpenChange={setIsSyncOpen}
+        db={db!}
+        onSyncComplete={handleItemAdded}
       />
     </div>
   )
