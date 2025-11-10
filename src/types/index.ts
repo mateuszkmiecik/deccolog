@@ -5,6 +5,7 @@ export interface CollectionItem {
   image256: string // Should be validated base64
   fingerprint: ReadonlyArray<number> // Should be fixed length
   readonly createdAt: number
+  indexNumber?: number
 }
 
 export interface CreateItemInput {

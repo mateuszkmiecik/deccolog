@@ -28,6 +28,7 @@ class CollectionDB {
             const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id' })
             store.createIndex('createdAt', 'createdAt', { unique: false })
             store.createIndex('name', 'name', { unique: false })
+            store.createIndex('indexNumber', 'indexNumber', { unique: false })
           }
         }
       })
@@ -42,7 +43,9 @@ class CollectionDB {
     try {
       const id = crypto.randomUUID()
       const createdAt = Date.now()
-      const fullItem: CollectionItem = { ...item, id, createdAt }
+      const latestItem = await this.getLatestAddedItem()
+      const indexNumber = latestItem ? (latestItem.indexNumber || 0) + 1 : 1
+      const fullItem: CollectionItem = { ...item, id, createdAt, indexNumber }
 
       return new Promise((resolve, reject) => {
         const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite')
@@ -88,6 +91,27 @@ class CollectionDB {
       })
     } catch (error) {
       throw new DatabaseError(`Get all items operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async getLatestAddedItem(): Promise<CollectionItem | null> {
+    if (!this.db) throw new DatabaseError('Database not initialized')
+    
+    try {
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORE_NAME], 'readonly')
+        const store = transaction.objectStore(this.STORE_NAME)
+        const index = store.index('createdAt')
+        const request = index.openCursor(null, 'prev')
+
+        request.onsuccess = () => {
+          const cursor = request.result
+          resolve(cursor ? cursor.value : null)
+        }
+        request.onerror = () => reject(new DatabaseError(`Failed to get latest item: ${request.error?.message}`))
+      })
+    } catch (error) {
+      throw new DatabaseError(`Get latest item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
