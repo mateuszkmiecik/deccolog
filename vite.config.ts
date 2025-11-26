@@ -18,8 +18,15 @@ export default defineConfig({
     host: true,
     port: 5173,
     hmr: {
-      host: "192.168.0.102",
       port: 5172,
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        index: path.resolve(__dirname, 'index.html'),
+        login: path.resolve(__dirname, 'login.html')
+      }
+    }
+  }
 })

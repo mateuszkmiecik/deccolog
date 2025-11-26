@@ -1,45 +1,44 @@
-import { useState, useEffect } from 'preact/hooks'
-import { CollectionDB } from '@/lib/db'
-import { type CollectionItem } from '@/types'
-import { ItemList } from '@/components/ItemList'
-import { AddItemModal } from '@/components/AddItemModal'
-import { SearchModal } from '@/components/SearchModal'
-import { CloudSyncModal } from '@/components/CloudSyncModal'
-import { PlusIcon, SearchIcon, RefreshCwIcon } from 'lucide-preact'
+import { useState, useEffect } from "preact/hooks";
+import { CollectionDB } from "@/lib/db";
+import { type CollectionItem } from "@/types";
+import { ItemList } from "@/components/ItemList";
+import { AddItemModal } from "@/components/AddItemModal";
+import { SearchModal } from "@/components/SearchModal";
+import { PlusIcon, SearchIcon } from "lucide-preact";
 
-import logo from '@/assets/image.jpeg'
+import logo from "@/assets/image.jpeg";
+import { Button } from "./components/ui/button";
 
 export function App() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [isSyncOpen, setIsSyncOpen] = useState(false)
-  const [db, setDb] = useState<CollectionDB | null>(null)
-  const [items, setItems] = useState<CollectionItem[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const [db, setDb] = useState<CollectionDB | null>(null);
+  const [items, setItems] = useState<CollectionItem[]>([]);
 
   useEffect(() => {
     const initDB = async () => {
-      const database = new CollectionDB()
-      await database.init()
-      setDb(database)
+      const database = new CollectionDB();
+      await database.init();
+      setDb(database);
 
-      const existingItems = await database.getAllItems()
-      setItems(existingItems)
-    }
+      const existingItems = await database.getAllItems();
+      setItems(existingItems);
+    };
 
-    initDB()
-  }, [])
+    initDB();
+  }, []);
 
   const handleItemAdded = async () => {
     if (db) {
-      const updatedItems = await db.getAllItems()
-      setItems(updatedItems)
+      const updatedItems = await db.getAllItems();
+      setItems(updatedItems);
     }
-  }
+  };
 
   return (
     <div className="flex h-dvh flex-col items-start justify-start w-screen overflow-auto">
       <div className="p-3 mx-auto">
-
         <div className="mx-auto flex items-center justify-center mb-4">
           <img src={logo} className="w-[200px]" />
         </div>
@@ -58,21 +57,14 @@ export function App() {
         <SearchIcon />
       </button>
 
-      {/* Fixed sync button */}
-      <button
-        onClick={() => setIsSyncOpen(true)}
-        className="fixed bottom-6 left-24 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/90 hover:scale-105 transition-all duration-200"
-      >
-        <RefreshCwIcon />
-      </button>
-
       {/* Fixed plus button with modal */}
-      <button
+      <Button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200"
+        variant="secondary"
+        className="fixed bottom-6 right-6 flex items-center justify-center bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200"
       >
-        <PlusIcon />
-      </button>
+        <PlusIcon className="w-4 h-4 mr-3" /> Add
+      </Button>
 
       <SearchModal
         isOpen={isSearchOpen}
@@ -86,13 +78,6 @@ export function App() {
         onItemAdded={handleItemAdded}
         db={db!}
       />
-
-      <CloudSyncModal
-        isOpen={isSyncOpen}
-        onOpenChange={setIsSyncOpen}
-        db={db!}
-        onSyncComplete={handleItemAdded}
-      />
     </div>
-  )
+  );
 }

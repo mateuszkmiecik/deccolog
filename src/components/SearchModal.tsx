@@ -1,13 +1,10 @@
-import { useState, useMemo, useRef, useEffect } from 'preact/hooks'
+import { useState, useMemo, useRef } from 'preact/hooks'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Search, X, Camera } from 'lucide-preact'
 import { type CollectionItem } from '@/types'
 import { ItemCard } from './ItemCard'
