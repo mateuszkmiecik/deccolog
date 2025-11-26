@@ -1,0 +1,1 @@
+ALTER TABLE "items" ALTER COLUMN "catalog_id" SET DATA TYPE integer;

@@ -1,0 +1,1 @@
+ALTER TABLE "catalogs" ALTER COLUMN "id" SET DATA TYPE serial;

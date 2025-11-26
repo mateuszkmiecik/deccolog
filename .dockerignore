@@ -89,3 +89,5 @@ pids
 # Temporary folders
 tmp/
 temp/
+
+.env
