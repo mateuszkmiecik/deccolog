@@ -23,8 +23,10 @@ export function useUploader() {
   const token = typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_UPLOAD_TOKEN as string | undefined) : undefined
   const apiUrl = typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_API_URL as string | undefined) ?? DEFAULT_API_URL : DEFAULT_API_URL
 
-  const uploadDataUrl = useCallback(async (dataUrl: string) => {
+  const uploadDataUrl = useCallback(async (dataUrl: string, fileName?: string) => {
     if (!token) return null
+
+    fileName = fileName ?? `upload-${((new Date()).toISOString())}`
 
     const { blob, mime } = dataUrlToBlob(dataUrl)
 
@@ -33,8 +35,8 @@ export function useUploader() {
     let ext = 'bin'
     try {
       ext = mime.split('/')[1].split('+')[0]
-    } catch {}
-    const filename = `upload.${ext}`
+    } catch { }
+    const filename = `${fileName}.${ext}`
     form.append('file', blob, filename)
 
     const headers: Record<string, string> = {

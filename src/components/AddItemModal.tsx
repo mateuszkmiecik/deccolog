@@ -100,7 +100,7 @@ function useCapture(processImage: (dataUrl: string) => Promise<any>) {
   }
 }
 
-function useFileUploader(processImage: (dataUrl: string) => Promise<any>) {
+function useFileUploader(processImage: (dataUrl: string, fileName?: string) => Promise<any>) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
@@ -116,7 +116,7 @@ function useFileUploader(processImage: (dataUrl: string) => Promise<any>) {
     if (!file) return
 
     const imageData = await readFileAsDataUrl(file)
-    await processImage(imageData)
+    await processImage(imageData, file.name)
   }, [processImage])
 
   return { fileInputRef, handleFileUpload }
@@ -145,7 +145,7 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
 
   // instantiate local hooks using useImageProcessing's processImage
   // wrap the base processImage so we upload the same dataUrl afterwards (if available)
-  const processImageAndUpload = useCallback(async (imageSource: string | HTMLImageElement) => {
+  const processImageAndUpload = useCallback(async (imageSource: string | HTMLImageElement, fileName?: string) => {
     // run the fingerprint/processing first
     const result = await processImage(imageSource)
 
@@ -154,7 +154,7 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
       // if no token is available in the hook it will return null and do nothing
       try {
         setUploadStatus('uploading')
-        const res = await uploadDataUrl(imageSource)
+        const res = await uploadDataUrl(imageSource, fileName)
         // try common returned properties
         const maybeUrl = res?.data?.url || res?.data?.location || (typeof res?.data === 'string' ? res.data : null)
         if (res?.ok) {
