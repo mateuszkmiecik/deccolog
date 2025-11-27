@@ -223,7 +223,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
                 }}
                 className="w-full"
               >
-                <X className="h-4 h-4 mr-2" />
+                <X className="h-4 mr-2" />
                 Clear Photo
               </Button>
             </div>

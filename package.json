@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"bun run dev:client\" \"bun run dev:server\"",
     "dev:client": "bunx --bun vite",
-    "dev:server": "bun run server.ts --watch",
+    "dev:server": "onchange -i -k 'api/**/*' -- go run ./api",
     "build": "tsc -b && bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "test": "vitest",

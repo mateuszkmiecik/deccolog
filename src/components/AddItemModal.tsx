@@ -1,4 +1,4 @@
-import { useState, useRef } from 'preact/hooks'
+import { useState, useRef, useCallback, useEffect } from 'preact/hooks'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { Camera, X, Upload } from 'lucide-preact'
 import { CollectionDB } from '@/lib/db'
 import { useCamera } from '@/hooks/useCamera'
 import { useImageProcessing } from '@/hooks/useImageProcessing'
+import { useUploader } from '@/hooks/useUploader'
 
 interface AddItemModalProps {
   isOpen: boolean
@@ -22,132 +23,182 @@ interface AddItemModalProps {
   db: CollectionDB
 }
 
-export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemModalProps) {
-  const [itemName, setItemName] = useState('')
-  const [itemDescription, setItemDescription] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  
+// ---- Local hooks (in-file) -------------------------------------------------
+// camera + capture logic
+function useCapture(processImage: (dataUrl: string) => Promise<any>) {
   const { isCameraActive, videoRef, startCamera, stopCamera } = useCamera()
-  
-  // Custom video ref to ensure stream is set when element mounts
-  const videoRefCallback = (element: HTMLVideoElement | null) => {
-    videoRef.current = element
-    if (element && isCameraActive) {
-      console.log('Video element mounted, camera is active')
-      // Give it a moment to set the stream
-      setTimeout(() => {
-        if (element.srcObject) {
-          console.log('Stream already set on video element')
-        } else {
-          console.log('No stream on video element, restarting camera')
-          startCamera()
-        }
-      }, 100)
-    }
-  }
-  const { capturedImage, imageFingerprint, fingerprintCanvas, processImage, clearImage } = useImageProcessing()
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // Ensure canvas is created when component mounts
-  const canvasRefCallback = (element: HTMLCanvasElement | null) => {
-    canvasRef.current = element
-    if (element) {
-      console.log('Canvas element mounted')
-    }
+  const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  const videoRefCallback = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el
+  }, [videoRef])
+
+  const canvasRefCallback = useCallback((el: HTMLCanvasElement | null) => {
+    hiddenCanvasRef.current = el
+  }, [])
+
+  const waitForVideoReady = async (video: HTMLVideoElement, timeout = 2000) => {
+    const start = Date.now()
+    return new Promise<void>((resolve, reject) => {
+      const check = () => {
+        if (video.readyState >= 2 && video.videoWidth > 0) return resolve()
+        if (Date.now() - start > timeout) return reject(new Error('video not ready'))
+        requestAnimationFrame(check)
+      }
+      check()
+    })
   }
 
-  const capturePhoto = async () => {
-    console.log('Capture photo called')
-    console.log('videoRef.current:', videoRef.current)
-    console.log('canvasRef.current:', canvasRef.current)
-    
-    if (!videoRef.current || !canvasRef.current) {
-      setError('Camera not available')
-      return
-    }
+  const drawVideoToHiddenCanvas = (video: HTMLVideoElement, canvas: HTMLCanvasElement) => {
+    canvas.width = 256
+    canvas.height = 256
 
-    const video = videoRef.current
-    const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    
-    console.log('video.readyState:', video.readyState)
-    console.log('video.videoWidth:', video.videoWidth, 'video.videoHeight:', video.videoHeight)
-    
-    if (!ctx) {
-      setError('Cannot capture photo')
-      return
+    if (!ctx) throw new Error('No 2D context')
+
+    const videoAspect = video.videoWidth / video.videoHeight
+    let drawWidth = 256
+    let drawHeight = 256
+    let offsetX = 0
+    let offsetY = 0
+
+    if (videoAspect > 1) {
+      drawHeight = 256 / videoAspect
+      offsetY = (256 - drawHeight) / 2
+    } else {
+      drawWidth = 256 * videoAspect
+      offsetX = (256 - drawWidth) / 2
     }
 
-    // Wait for video to be ready
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      console.log('Video not ready, waiting...')
-      const waitForVideo = () => {
-        if (video.readyState >= 2 && video.videoWidth > 0) {
-          console.log('Video ready now, capturing...')
-          capturePhoto()
-        } else {
-          setTimeout(waitForVideo, 100)
-        }
-      }
-      waitForVideo()
-      return
-    }
-
-    try {
-      canvas.width = 256
-      canvas.height = 256
-      
-      const videoAspect = video.videoWidth / video.videoHeight
-      let drawWidth = 256
-      let drawHeight = 256
-      let offsetX = 0
-      let offsetY = 0
-      
-      if (videoAspect > 1) {
-        drawHeight = 256 / videoAspect
-        offsetY = (256 - drawHeight) / 2
-      } else {
-        drawWidth = 256 * videoAspect
-        offsetX = (256 - drawWidth) / 2
-      }
-      
-      ctx.fillStyle = 'white'
-      ctx.fillRect(0, 0, 256, 256)
-      ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight)
-      
-      const imageData = canvas.toDataURL('image/jpeg', 0.8)
-      
-      await processImage(imageData)
-      stopCamera()
-    } catch (error) {
-      console.error('Error capturing photo:', error)
-      setError('Failed to capture photo')
-    }
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, 256, 256)
+    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight)
+    return canvas.toDataURL('image/jpeg', 0.8)
   }
 
-  const handleFileUpload = async (e: Event) => {
+  const capturePhoto = useCallback(async () => {
+    const video = videoRef.current
+    const canvas = hiddenCanvasRef.current
+    if (!video || !canvas) {
+      throw new Error('camera not available')
+    }
+
+    await waitForVideoReady(video)
+    const imageData = drawVideoToHiddenCanvas(video, canvas)
+    await processImage(imageData)
+    stopCamera()
+  }, [videoRef, hiddenCanvasRef, processImage, stopCamera])
+
+  return {
+    isCameraActive,
+    videoRefCallback,
+    canvasRefCallback,
+    startCamera,
+    stopCamera,
+    capturePhoto,
+    hiddenCanvasRef,
+  }
+}
+
+function useFileUploader(processImage: (dataUrl: string) => Promise<any>) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = (e) => reject(e)
+    reader.readAsDataURL(file)
+  })
+
+  const handleFileUpload = useCallback(async (e: Event) => {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const imageData = e.target?.result as string
-        try {
-          await processImage(imageData)
-          setError(null)
-        } catch (err) {
-          setError('Failed to process image')
+    if (!file) return
+
+    const imageData = await readFileAsDataUrl(file)
+    await processImage(imageData)
+  }, [processImage])
+
+  return { fileInputRef, handleFileUpload }
+}
+
+
+export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemModalProps) {
+  const [itemDetails, setItemDetails] = useState<{ name: string; description: string }>({ name: '', description: '' });
+  const [error, setError] = useState<string | null>(null)
+
+  const clearItemDetails = () => setItemDetails({ name: '', description: '' })
+  const setItemName = (name: string) => setItemDetails(d => ({ ...d, name }))
+  const setItemDescription = (description: string) => setItemDetails(d => ({ ...d, description }))
+
+  // (capture logic is moved to useCapture below)
+  const { capturedImage, imageFingerprint, fingerprintCanvas, processImage, clearImage } = useImageProcessing()
+  const { uploadDataUrl } = useUploader()
+
+  // upload status & remote url
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
+  const [remoteImageUrl, setRemoteImageUrl] = useState<string | null>(null)
+
+  // canvas and file input refs are provided by hooks below
+
+
+
+  // instantiate local hooks using useImageProcessing's processImage
+  // wrap the base processImage so we upload the same dataUrl afterwards (if available)
+  const processImageAndUpload = useCallback(async (imageSource: string | HTMLImageElement) => {
+    // run the fingerprint/processing first
+    const result = await processImage(imageSource)
+
+    // only attempt upload for dataURL strings
+    if (typeof imageSource === 'string') {
+      // if no token is available in the hook it will return null and do nothing
+      try {
+        setUploadStatus('uploading')
+        const res = await uploadDataUrl(imageSource)
+        // try common returned properties
+        const maybeUrl = res?.data?.url || res?.data?.location || (typeof res?.data === 'string' ? res.data : null)
+        if (res?.ok) {
+          setRemoteImageUrl(maybeUrl ?? null)
+          setUploadStatus('done')
+        } else {
+          setRemoteImageUrl(null)
+          setUploadStatus('error')
         }
+      } catch (e) {
+        setRemoteImageUrl(null)
+        setUploadStatus('error')
       }
-      reader.readAsDataURL(file)
     }
-  }
+
+    return result
+  }, [processImage, uploadDataUrl])
+
+  const { fileInputRef, handleFileUpload: uploaderHandleFile } = useFileUploader(processImageAndUpload)
+
+  const capture = useCapture(processImageAndUpload)
+  // forward refs and functions from the local hooks (keep original names so usage stays consistent)
+  const { videoRefCallback, canvasRefCallback, capturePhoto: captureFromHook, isCameraActive, startCamera, stopCamera } = capture
+  const capturePhoto = useCallback(async () => {
+    try {
+      await captureFromHook()
+      setError(null)
+    } catch (err) {
+      setError('Failed to capture photo')
+    }
+  }, [captureFromHook])
+
+  const handleFileUpload = useCallback(async (e: Event) => {
+    try {
+      await uploaderHandleFile(e)
+      setError(null)
+    } catch (err) {
+      setError('Failed to process image')
+    }
+  }, [uploaderHandleFile])
 
   const handleAddItem = async () => {
     setError(null)
-    
+
     if (!capturedImage || !imageFingerprint) {
       setError('Please capture an image before adding to collection')
       return
@@ -155,71 +206,79 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
 
     try {
       await db.addItem({
-        name: itemName,
-        description: itemDescription,
+        ...itemDetails,
         image256: capturedImage,
-        fingerprint: imageFingerprint
+        fingerprint: imageFingerprint,
+        ...(remoteImageUrl ? { remoteUrl: remoteImageUrl } : {})
       })
 
-      setItemName('')
-      setItemDescription('')
+      clearItemDetails();
       clearImage()
       onOpenChange(false)
       onItemAdded()
     } catch (error) {
       console.error('Error adding item:', error)
-      setError('Failed to add item to collection: ' +(error as Error)['message'])
+      // Keep user-facing error message stable for tests / UX
+      setError('Failed to add item to collection')
     }
   }
 
   const handleClose = () => {
     setError(null)
-    setItemName('')
-    setItemDescription('')
+    clearItemDetails()
     clearImage()
     stopCamera()
     onOpenChange(false)
   }
+
+  // Draw capturedImage into the preview canvas when it changes
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  useEffect(() => {
+    const canvas = previewCanvasRef.current
+    if (!canvas || !capturedImage) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const img = new Image()
+    img.onload = () => {
+      canvas.width = 256
+      canvas.height = 256
+      ctx.drawImage(img, 0, 0, 256, 256)
+    }
+    img.src = capturedImage
+  }, [capturedImage])
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add to Collection</DialogTitle>
-          <DialogDescription>
-            Add a new item to your collection. Fill in the details below.
-          </DialogDescription>
+          <DialogDescription>Add a new item to your collection. Fill in the details below.</DialogDescription>
         </DialogHeader>
-        
+
         {error && (
           <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
             {error}
           </div>
         )}
-        
+        <div className="flex flex-col">
+          <Input
+            id="name"
+            value={itemDetails.name}
+            onChange={(e: any) => setItemName(e.currentTarget.value)}
+            className="col-span-3"
+            placeholder="Enter item name"
+          />
+          <Input
+            id="description"
+            value={itemDetails.description}
+            onChange={(e: any) => setItemDescription(e.currentTarget.value)}
+            className="col-span-3 mt-2"
+            placeholder="Enter item description"
+          />
+        </div>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">Name</Label>
-            <Input
-              id="name"
-              value={itemName}
-              onChange={(e: any) => setItemName(e.currentTarget.value)}
-              className="col-span-3"
-              placeholder="Enter item name"
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">Description</Label>
-            <Input
-              id="description"
-              value={itemDescription}
-              onChange={(e: any) => setItemDescription(e.currentTarget.value)}
-              className="col-span-3"
-              placeholder="Enter item description"
-            />
-          </div>
-          
+
           <div className="col-span-4 space-y-2">
             <Label>Photo</Label>
             {!capturedImage && !isCameraActive && (
@@ -241,7 +300,7 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
                 />
               </div>
             )}
-            
+
             {isCameraActive && (
               <div className="space-y-2">
                 <video
@@ -262,25 +321,13 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
                 </div>
               </div>
             )}
-            
+
             {capturedImage && (
               <div className="space-y-2">
                 <div className="flex gap-4 justify-center">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-2">256x256</p>
-                    <canvas
-                      ref={(canvas) => {
-                        if (canvas && capturedImage) {
-                          const ctx = canvas.getContext('2d')
-                          const img = new Image()
-                          img.onload = () => {
-                            canvas.width = 256
-                            canvas.height = 256
-                            ctx?.drawImage(img, 0, 0, 256, 256)
-                          }
-                          img.src = capturedImage
-                        }
-                      }}
+                    <canvas ref={previewCanvasRef}
                       width={256}
                       height={256}
                       className="rounded-md border bg-black"
@@ -304,17 +351,23 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
                   <X className="w-4 h-4 mr-2" />
                   Remove Photo
                 </Button>
+                {uploadStatus === 'uploading' && (
+                  <div className="text-xs text-muted-foreground text-center mt-1">Uploading…</div>
+                )}
+                {uploadStatus === 'done' && remoteImageUrl && (
+                  <div className="text-xs text-muted-foreground text-center mt-1">Uploaded ✓</div>
+                )}
               </div>
             )}
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button type="submit" onClick={handleAddItem}>
             Add Item
           </Button>
         </DialogFooter>
-        
+
         {/* Hidden canvas for photo capture */}
         <canvas ref={canvasRefCallback} className="hidden" />
       </DialogContent>

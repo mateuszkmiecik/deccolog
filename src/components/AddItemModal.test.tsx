@@ -13,6 +13,10 @@ vi.mock('@/hooks/useCamera', () => ({
   })),
 }))
 
+vi.mock('@/hooks/useUploader', () => ({
+  useUploader: vi.fn(() => ({ uploadDataUrl: vi.fn().mockResolvedValue(null) }))
+}))
+
 vi.mock('@/hooks/useImageProcessing', () => ({
   useImageProcessing: vi.fn(() => ({
     capturedImage: null,
@@ -286,6 +290,52 @@ describe('AddItemModal', () => {
       expect(mockOnItemAdded).toHaveBeenCalled()
       expect(mockOnOpenChange).toHaveBeenCalledWith(false)
       expect(mockClearImage).toHaveBeenCalled()
+    })
+  })
+
+  it('adds item with remoteUrl when upload returns url', async () => {
+    const { useImageProcessing } = await import('@/hooks/useImageProcessing')
+    const { useUploader } = await import('@/hooks/useUploader')
+
+    vi.mocked(useImageProcessing).mockReturnValue({
+      capturedImage: 'data:image/jpeg;base64,test',
+      imageFingerprint: [1, 2, 3],
+      fingerprintCanvas: 'data:image/png;base64,fingerprint',
+      processImage: vi.fn(),
+      clearImage: vi.fn(),
+    } as any)
+
+    // return a successful upload result
+    const uploadMock = vi.fn().mockResolvedValue({ ok: true, data: { url: 'https://cdn.example/test.png' } })
+    vi.mocked(useUploader).mockReturnValue({ uploadDataUrl: uploadMock } as any)
+
+    mockDb.addItem = vi.fn().mockResolvedValue('test-id')
+
+    render(
+      <AddItemModal
+        isOpen={true}
+        onOpenChange={mockOnOpenChange}
+        onItemAdded={mockOnItemAdded}
+        db={mockDb}
+      />
+    )
+
+    const nameInput = screen.getByTestId('name')
+    const descriptionInput = screen.getByTestId('description')
+    const addButton = screen.getByText('Add Item')
+
+    fireEvent.change(nameInput, { target: { value: 'Test Item' } })
+    fireEvent.change(descriptionInput, { target: { value: 'Test Description' } })
+    fireEvent.click(addButton)
+
+    await waitFor(() => {
+      expect(mockDb.addItem).toHaveBeenCalledWith({
+        name: 'Test Item',
+        description: 'Test Description',
+        image256: 'data:image/jpeg;base64,test',
+        fingerprint: [1, 2, 3],
+        remoteUrl: 'https://cdn.example/test.png'
+      })
     })
   })
 
