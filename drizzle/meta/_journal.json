@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1764007712874,
-      "tag": "0000_clever_jack_power",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1764008024802,
-      "tag": "0001_familiar_anita_blake",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1764028289302,
-      "tag": "0002_simple_doctor_octopus",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1764028453764,
-      "tag": "0003_huge_morlocks",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1764028460933,
-      "tag": "0004_striped_mother_askani",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1764028473373,
-      "tag": "0005_vengeful_molecule_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1764028489662,
-      "tag": "0006_giant_lorna_dane",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1764028494725,
-      "tag": "0007_curly_gabe_jones",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1764030611179,
-      "tag": "0008_magical_nick_fury",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1764030735202,
-      "tag": "0009_common_overlord",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1764030741654,
-      "tag": "0010_known_doctor_strange",
+      "when": 1764287288511,
+      "tag": "0000_purple_the_professor",
       "breakpoints": true
     }
   ]
