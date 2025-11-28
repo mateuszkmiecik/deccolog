@@ -3,151 +3,139 @@ import { DatabaseError } from '@/lib/errors'
 import { nanoid } from 'nanoid'
 
 class CollectionDB {
-  private db: IDBDatabase | null = null
-  private readonly DB_NAME = 'CollectionDB'
-  private readonly VERSION = 1
-  private readonly STORE_NAME = 'items'
+  // base API url for managing collection items — can be overridden via init
+  private baseUrl = '/api/items'
 
-  async init(): Promise<void> {
-    try {
-      return new Promise((resolve, reject) => {
-        const request = indexedDB.open(this.DB_NAME, this.VERSION)
+  /**
+   * Initialize the client. Optionally pass the base URL for the REST endpoints.
+   */
+  async init(baseUrl?: string): Promise<void> {
+    if (baseUrl) this.baseUrl = baseUrl
 
-        request.onerror = () => reject(new DatabaseError(`Failed to open database: ${request.error?.message}`))
-        request.onsuccess = () => {
-          this.db = request.result
-          resolve()
-        }
-
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result
-          
-          // Create object store for items
-          if (!db.objectStoreNames.contains(this.STORE_NAME)) {
-            const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id' })
-            store.createIndex('createdAt', 'createdAt', { unique: false })
-            store.createIndex('name', 'name', { unique: false })
-            store.createIndex('indexNumber', 'indexNumber', { unique: false })
-          }
-        }
-      })
-    } catch (error) {
-      throw new DatabaseError(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    // Optionally we could probe the server here; keep lightweight to avoid
+    // making network assumptions in tests. No-op if baseUrl is left default.
+    return Promise.resolve()
   }
 
   async addItem(item: Omit<CollectionItem, 'id' | 'createdAt'>): Promise<string> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-    
     try {
-      const id = nanoid();
+      const id = nanoid()
       const createdAt = Date.now()
       const latestItem = await this.getLatestAddedItem()
       const indexNumber = latestItem ? (latestItem.indexNumber || 0) + 1 : 1
       const fullItem: CollectionItem = { ...item, id, createdAt, indexNumber }
 
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const request = store.add(fullItem)
-
-        request.onsuccess = () => resolve(id)
-        request.onerror = () => reject(new DatabaseError(`Failed to add item: ${request.error?.message}`))
+      const res = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullItem),
       })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to add item: ${res.status} ${res.statusText} ${text}`)
+      }
+
+      // If the server returns the created item use it; otherwise assume success
+      try {
+        const data = await res.json().catch(() => null)
+        // If server returns created item including id, prefer that id
+        if (data && typeof data.id === 'string') return data.id
+      } catch {}
+
+      return id
     } catch (error) {
       throw new DatabaseError(`Add item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   async getItem(id: string): Promise<CollectionItem | null> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-    
     try {
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readonly')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const request = store.get(id)
-
-        request.onsuccess = () => resolve(request.result || null)
-        request.onerror = () => reject(new DatabaseError(`Failed to get item: ${request.error?.message}`))
+      const res = await fetch(`${this.baseUrl}/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
       })
+
+      if (res.status === 404) return null
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to get item: ${res.status} ${res.statusText} ${text}`)
+      }
+
+      const item = await res.json()
+      return item as CollectionItem
     } catch (error) {
       throw new DatabaseError(`Get item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   async getAllItems(): Promise<CollectionItem[]> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-    
     try {
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readonly')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const request = store.getAll()
+      const res = await fetch(this.baseUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
 
-        request.onsuccess = () => resolve(request.result || [])
-        request.onerror = () => reject(new DatabaseError(`Failed to get all items: ${request.error?.message}`))
-      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to get all items: ${res.status} ${res.statusText} ${text}`)
+      }
+
+      const data = await res.json()
+      return Array.isArray(data) ? (data as CollectionItem[]) : []
     } catch (error) {
       throw new DatabaseError(`Get all items operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   async getLatestAddedItem(): Promise<CollectionItem | null> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-    
     try {
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readonly')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const index = store.index('createdAt')
-        const request = index.openCursor(null, 'prev')
-
-        request.onsuccess = () => {
-          const cursor = request.result
-          resolve(cursor ? cursor.value : null)
+      // Server might expose a dedicated endpoint, but fall back to client-side scan
+      // for compatibility with servers that don't implement /latest.
+      try {
+        const res = await fetch(`${this.baseUrl}/latest`, { method: 'GET', headers: { 'Accept': 'application/json' } })
+        if (res.ok) {
+          const item = await res.json()
+          return item || null
         }
-        request.onerror = () => reject(new DatabaseError(`Failed to get latest item: ${request.error?.message}`))
-      })
+      } catch (e) {
+        // ignore and fall back
+      }
+
+      const all = await this.getAllItems()
+      if (!all || all.length === 0) return null
+      return all.reduce((latest, cur) => (cur.createdAt > latest.createdAt ? cur : latest), all[0])
     } catch (error) {
       throw new DatabaseError(`Get latest item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   async updateItem(id: string, updates: Partial<CollectionItem>): Promise<void> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-
     try {
+      // Ensure the item exists locally first
       const existing = await this.getItem(id)
       if (!existing) throw new DatabaseError('Item not found')
 
-      const updated = { ...existing, ...updates }
-
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const request = store.put(updated)
-
-        request.onsuccess = () => resolve()
-        request.onerror = () => reject(new DatabaseError(`Failed to update item: ${request.error?.message}`))
+      const payload = { ...existing, ...updates }
+      const res = await fetch(`${this.baseUrl}/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to update item: ${res.status} ${res.statusText} ${text}`)
+      }
     } catch (error) {
       throw new DatabaseError(`Update item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   async deleteItem(id: string): Promise<void> {
-    if (!this.db) throw new DatabaseError('Database not initialized')
-    
     try {
-      return new Promise((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite')
-        const store = transaction.objectStore(this.STORE_NAME)
-        const request = store.delete(id)
-
-        request.onsuccess = () => resolve()
-        request.onerror = () => reject(new DatabaseError(`Failed to delete item: ${request.error?.message}`))
-      })
+      const res = await fetch(`${this.baseUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to delete item: ${res.status} ${res.statusText} ${text}`)
+      }
     } catch (error) {
       throw new DatabaseError(`Delete item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }

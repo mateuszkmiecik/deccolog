@@ -20,6 +20,15 @@ export default defineConfig({
     hmr: {
       port: 5172,
     },
+    proxy: {
+      // Proxy configuration object
+      '/api': {
+        target: 'http://localhost:3002', // The address of your backend server
+        changeOrigin: true, // Needed for virtual hosting
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Optional: Rewrite the path
+        secure: false, // Set to true if your target is HTTPS
+      },
+    },
   },
   build: {
     rollupOptions: {
