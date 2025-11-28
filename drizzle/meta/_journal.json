@@ -8,6 +8,27 @@
       "when": 1764287288511,
       "tag": "0000_purple_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1764287420832,
+      "tag": "0001_wonderful_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764287428290,
+      "tag": "0002_messy_lady_deathstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1764287479380,
+      "tag": "0003_mighty_skin",
+      "breakpoints": true
     }
   ]
 }
