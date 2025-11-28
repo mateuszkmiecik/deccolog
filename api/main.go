@@ -35,7 +35,7 @@ func main() {
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/login", loginHandler(cm))
-	http.HandleFunc("/api", apiHandler)
+	http.HandleFunc("/api/", apiHandler)
 
 	port = ":" + port
 	err := http.ListenAndServe(port, nil)
@@ -54,9 +54,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 	}
 
-	sessionChecker(func() (*http.Cookie, error) {
-		return r.Cookie("token")
-	}, onSuccess, onFailure)
+	sessionChecker(r, onSuccess, onFailure)
 }
 
 type PostPayload struct {
@@ -75,7 +73,7 @@ func loginHandler(cm CatalogDBService) func(w http.ResponseWriter, r *http.Reque
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		sessionChecker(getTokenCookie(r), func(rc *jwt.RegisteredClaims) {
+		sessionChecker(r, func(rc *jwt.RegisteredClaims) {
 			http.Redirect(w, r, "/", http.StatusFound)
 		}, func() {
 			switch r.Method {
@@ -143,7 +141,22 @@ func fileHandlerFactory(fileName string) func(w http.ResponseWriter, r *http.Req
 }
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
+	var claims *jwt.RegisteredClaims
+	authenticated := sessionChecker(r, func(rc *jwt.RegisteredClaims) {
+		claims = rc
+	}, func() {})
+
+	if !authenticated {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	fmt.Println(claims.Subject)
+
+	pathSegment := r.URL.Path[len("/api"):]
+
 	fmt.Println(r.Method)
+	fmt.Println("path", pathSegment)
 	fmt.Println(r.Cookie("session"))
 	fmt.Fprintf(w, "/api")
 }

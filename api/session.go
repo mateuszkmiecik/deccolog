@@ -10,25 +10,24 @@ import (
 
 var jwtSecret = []byte(getEnv("JWT_SECRET", "dev-secret"))
 
-func getTokenCookie(r *http.Request) func() (*http.Cookie, error) {
-	return func() (*http.Cookie, error) {
-		return r.Cookie("token")
-	}
+func getTokenCookie(r *http.Request) (*http.Cookie, error) {
+	return r.Cookie("token")
 }
 
-func sessionChecker(getCookie func() (*http.Cookie, error), onSuccess func(*jwt.RegisteredClaims), onFailure func()) {
-	c, err := getCookie()
+func sessionChecker(r *http.Request, onSuccess func(*jwt.RegisteredClaims), onFailure func()) bool {
+	c, err := getTokenCookie(r)
 	if err != nil {
 		onFailure()
-		return
+		return false
 	}
 	claims, err := validateToken(c.Value)
 	if err != nil {
 		fmt.Println("invalid token: "+err.Error(), http.StatusUnauthorized)
 		onFailure()
-		return
+		return false
 	}
 	onSuccess(claims)
+	return true
 }
 
 // validateToken parses and verifies the token, returning RegisteredClaims on success.
