@@ -16,3 +16,9 @@ export const items = pgTable("items", {
   fingerprint: text("fingerprint").notNull(),
   photoUrl: text("photo_url"),
 });
+
+export const tags = pgTable("tags", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  catalogId: integer("catalog_id").references(() => catalog.id),
+})
