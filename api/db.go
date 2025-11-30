@@ -4,13 +4,17 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"time"
+
+	_ "github.com/lib/pq"
 )
 
 func initializeDB() *sql.DB {
 	connString := os.Getenv("DATABASE_URL")
-	db, dbErr := sql.Open("postgres", connString)
+	db, dbErr := sql.Open("postgres", connString+"?parseTime=true")
 	if dbErr != nil {
 		log.Fatalln(dbErr.Error())
 		panic(dbErr)
@@ -18,7 +22,7 @@ func initializeDB() *sql.DB {
 	return db
 }
 
-type CatalogDBService struct {
+type DBService struct {
 	DB *sql.DB
 }
 
@@ -28,7 +32,7 @@ type Catalog struct {
 	Password string
 }
 
-func (c CatalogDBService) findCatalogByPasswordHash(password string) (Catalog, error) {
+func (c DBService) findCatalogByPasswordHash(password string) (Catalog, error) {
 	hash := md5.Sum([]byte(password))
 	hashedPassword := base64.StdEncoding.EncodeToString(hash[:])
 
@@ -52,5 +56,47 @@ func (c CatalogDBService) findCatalogByPasswordHash(password string) (Catalog, e
 // 		catalogs = append(catalogs, r)
 // 	}
 
-// 	return catalogs
-// }
+//		return catalogs
+//	}
+
+type Item struct {
+	Id          int       `json:"id"`
+	Name        string    `json:"name"`
+	FingerPrint string    `json:"fingerprint"`
+	PhotoUrl    string    `json:"photoUrl"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+func (c DBService) getAllItems(catalogId int) ([]Item, error) {
+	result, err := c.DB.Query("select id, name, fingerprint, photo_url, created_at from items where catalog_id = $1", catalogId)
+	if err != nil {
+		return []Item{}, err
+	}
+	defer result.Close()
+	// colTypes, err := result.ColumnTypes()
+	// for c := colTypes {
+	// 	fmt.Println(c)
+	// }
+	var items = []Item{}
+
+	for result.Next() {
+		var i Item
+		result.Scan(&i.Id, &i.Name, &i.FingerPrint, &i.PhotoUrl, &i.CreatedAt)
+		items = append(items, i)
+	}
+
+	return items, nil
+}
+
+var insertStmt = "INSERT into items(name, fingerprint, catalog_id, photo_url) VALUES ($1, $2, $3, $4) RETURNING id"
+
+func (c DBService) createNewItem(payload PostNewItemPayload, catalogId int) (int64, error) {
+	println("creating new item")
+	result, err := c.DB.Exec(insertStmt, payload.Name, payload.Fingerprint, catalogId, payload.PhotoUrl)
+	if err != nil {
+		fmt.Println(err)
+		return -1, err
+	}
+	id, err := result.LastInsertId()
+	return id, nil
+}

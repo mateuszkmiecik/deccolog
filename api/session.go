@@ -52,7 +52,7 @@ func setSessionToken(w http.ResponseWriter, json string) {
 	// Create token with standard claims and a custom "sub" (subject)
 	claims := jwt.RegisteredClaims{
 		Subject:   json,
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 60 * time.Minute)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}
 
