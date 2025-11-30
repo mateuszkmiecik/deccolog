@@ -37,18 +37,18 @@ export function ImageModal({ isOpen, onOpenChange, item }: ImageModalProps) {
         <div className="space-y-4">
           <div className="flex justify-center">
             <img
-              src={item.image256}
+              src={`${item.photoUrl}/raw`}
               alt={item.name}
               className="max-w-full rounded-lg border bg-black"
               style={{ maxHeight: '400px' }}
             />
           </div>
           
-          {item.description && (
+          {/* {item.description && (
             <div className="text-center">
               <p className="text-muted-foreground">{item.description}</p>
             </div>
-          )}
+          )} */}
           
           <div className="text-center text-sm text-muted-foreground">
             <p>Added {new Date(item.createdAt).toLocaleDateString()}</p>

@@ -1,4 +1,5 @@
 import { useCallback } from 'preact/hooks'
+import { nanoid } from 'nanoid';
 
 // Simple browser uploader hook — wraps the same behaviour as the bash script
 // - reads the upload token from Vite env VITE_UPLOAD_TOKEN (optional)
@@ -26,7 +27,7 @@ export function useUploader() {
   const uploadDataUrl = useCallback(async (dataUrl: string, fileName?: string) => {
     if (!token) return null
 
-    fileName = fileName ?? `upload-${((new Date()).toISOString())}`
+    fileName = nanoid()
 
     const { blob, mime } = dataUrlToBlob(dataUrl)
 
@@ -45,11 +46,13 @@ export function useUploader() {
     }
 
     const res = await fetch(apiUrl, { method: 'POST', headers, body: form })
-    const text = await res.text()
-    try {
-      return { ok: res.ok, data: text ? JSON.parse(text) : null }
-    } catch {
-      return { ok: res.ok, data: text }
+    const body = await res.json() as { data: { url: string }, success: true } | { success: false }
+
+    if (res.ok) {
+      return body;
+    }
+    return {
+      success: false as const
     }
   }, [token, apiUrl])
 

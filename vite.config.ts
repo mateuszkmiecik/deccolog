@@ -22,10 +22,15 @@ export default defineConfig({
     },
     proxy: {
       // Proxy configuration object
+      '/auth': {
+        target: 'http://localhost:3002', // The address of your backend server
+        changeOrigin: true, // Needed for virtual hosting
+        rewrite: (path) => path.replace(/^\/auth/, '/auth'), // Optional: Rewrite the path
+        secure: false, // Set to true if your target is HTTPS
+      },
       '/api': {
         target: 'http://localhost:3002', // The address of your backend server
         changeOrigin: true, // Needed for virtual hosting
-        rewrite: (path) => path.replace(/^\/api/, '/api'), // Optional: Rewrite the path
         secure: false, // Set to true if your target is HTTPS
       },
     },

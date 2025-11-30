@@ -33,7 +33,8 @@ function useLoginFlow() {
   const sendPassword = async (password: string) => {
     setError(null);
     setLoading(true);
-    const res = await fetch('http://localhost:3002/login', {
+
+    const res = await fetch('/auth/login', {
       method: 'POST',
       body: JSON.stringify({
         password

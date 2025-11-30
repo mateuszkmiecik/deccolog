@@ -1,6 +1,5 @@
-import { type CollectionItem, type SimilarityResult } from '@/types'
+import { type CollectionItem, type CollectionItemInput, type SimilarityResult } from '@/types'
 import { DatabaseError } from '@/lib/errors'
-import { nanoid } from 'nanoid'
 
 class CollectionDB {
   // base API url for managing collection items — can be overridden via init
@@ -17,18 +16,12 @@ class CollectionDB {
     return Promise.resolve()
   }
 
-  async addItem(item: Omit<CollectionItem, 'id' | 'createdAt'>): Promise<string> {
+  async addItem(item: CollectionItemInput): Promise<string> {
     try {
-      const id = nanoid()
-      const createdAt = Date.now()
-      const latestItem = await this.getLatestAddedItem()
-      const indexNumber = latestItem ? (latestItem.indexNumber || 0) + 1 : 1
-      const fullItem: CollectionItem = { ...item, id, createdAt, indexNumber }
-
       const res = await fetch(this.baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fullItem),
+        body: JSON.stringify(item),
       })
 
       if (!res.ok) {
@@ -43,7 +36,7 @@ class CollectionDB {
         if (data && typeof data.id === 'string') return data.id
       } catch {}
 
-      return id
+      return ''
     } catch (error) {
       throw new DatabaseError(`Add item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -85,28 +78,6 @@ class CollectionDB {
     }
   }
 
-  async getLatestAddedItem(): Promise<CollectionItem | null> {
-    try {
-      // Server might expose a dedicated endpoint, but fall back to client-side scan
-      // for compatibility with servers that don't implement /latest.
-      try {
-        const res = await fetch(`${this.baseUrl}/latest`, { method: 'GET', headers: { 'Accept': 'application/json' } })
-        if (res.ok) {
-          const item = await res.json()
-          return item || null
-        }
-      } catch (e) {
-        // ignore and fall back
-      }
-
-      const all = await this.getAllItems()
-      if (!all || all.length === 0) return null
-      return all.reduce((latest, cur) => (cur.createdAt > latest.createdAt ? cur : latest), all[0])
-    } catch (error) {
-      throw new DatabaseError(`Get latest item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
   async updateItem(id: string, updates: Partial<CollectionItem>): Promise<void> {
     try {
       // Ensure the item exists locally first
@@ -139,19 +110,6 @@ class CollectionDB {
     } catch (error) {
       throw new DatabaseError(`Delete item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  async findSimilarItems(fingerprint: ReadonlyArray<number>, threshold = 0.5): Promise<CollectionItem[]> {
-    const allItems = await this.getAllItems()
-    
-    return allItems.filter(item => {
-      const similarity = calculateSimilarity(fingerprint, item.fingerprint)
-      return similarity.euclidean < threshold
-    }).sort((a, b) => {
-      const simA = calculateSimilarity(fingerprint, a.fingerprint)
-      const simB = calculateSimilarity(fingerprint, b.fingerprint)
-      return simA.euclidean - simB.euclidean
-    })
   }
 
 }

@@ -21,9 +21,14 @@ export function App() {
       const database = new CollectionDB();
       await database.init();
       setDb(database);
+      try {
+        const existingItems = await database.getAllItems();
+        setItems(existingItems);
+      } catch (err) {
+        console.log(err);
+        window.location.href = '/login';
+      }
 
-      const existingItems = await database.getAllItems();
-      setItems(existingItems);
     };
 
     initDB();
@@ -38,7 +43,7 @@ export function App() {
 
   return (
     <div className="flex h-dvh flex-col items-start justify-start w-screen overflow-auto">
-      <div className="p-3 mx-auto">
+      <div className="p-3 mx-auto max-w-2xl w-full">
         <div className="mx-auto flex items-center justify-center mb-4">
           <img src={logo} className="w-[200px]" />
         </div>

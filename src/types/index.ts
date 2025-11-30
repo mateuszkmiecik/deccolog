@@ -1,22 +1,12 @@
 export interface CollectionItem {
-  readonly id: string
+  readonly id: number
   name: string
-  description: string
-  image256: string // Should be validated base64
-  /** Optional remote URL returned by the upload API */
-  remoteUrl?: string
-  fingerprint: ReadonlyArray<number> // Should be fixed length
+  photoUrl: string
+  fingerprint: string
   readonly createdAt: number
-  indexNumber?: number
 }
 
-export interface CreateItemInput {
-  name: string
-  description: string
-  image256: string
-  remoteUrl?: string
-  fingerprint: ReadonlyArray<number>
-}
+export type CollectionItemInput = Omit<CollectionItem, 'id' | 'createdAt'>
 
 export interface SimilarityResult {
   readonly euclidean: number
@@ -26,7 +16,7 @@ export interface SimilarityResult {
 }
 
 export interface FingerprintResult {
-  readonly fingerprint: number[];
+  readonly fingerprint: string;
   readonly canvas: string
 }
 

@@ -4,7 +4,7 @@ import { type FingerprintResult } from '@/types'
 
 export function useImageProcessing() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
-  const [imageFingerprint, setImageFingerprint] = useState<number[] | null>(null)
+  const [imageFingerprint, setImageFingerprint] = useState<string | null>(null)
   const [fingerprintCanvas, setFingerprintCanvas] = useState<string | null>(null)
 
   const processImage = useCallback(async (imageSource: string | HTMLImageElement) => {

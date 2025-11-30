@@ -15,6 +15,8 @@ import { CollectionDB } from '@/lib/db'
 import { useCamera } from '@/hooks/useCamera'
 import { useImageProcessing } from '@/hooks/useImageProcessing'
 import { useUploader } from '@/hooks/useUploader'
+import { Badge } from './ui/badge'
+
 
 interface AddItemModalProps {
   isOpen: boolean
@@ -139,9 +141,6 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
   const [remoteImageUrl, setRemoteImageUrl] = useState<string | null>(null)
 
-  // canvas and file input refs are provided by hooks below
-
-
 
   // instantiate local hooks using useImageProcessing's processImage
   // wrap the base processImage so we upload the same dataUrl afterwards (if available)
@@ -155,10 +154,13 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
       try {
         setUploadStatus('uploading')
         const res = await uploadDataUrl(imageSource, fileName)
+        if (!res?.success) {
+          throw new Error('Error happened while uploading an image')
+        }
+
         // try common returned properties
-        const maybeUrl = res?.data?.url || res?.data?.location || (typeof res?.data === 'string' ? res.data : null)
-        if (res?.ok) {
-          setRemoteImageUrl(maybeUrl ?? null)
+        if (res.success) {
+          setRemoteImageUrl(res.data.url)
           setUploadStatus('done')
         } else {
           setRemoteImageUrl(null)
@@ -199,23 +201,22 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
   const handleAddItem = async () => {
     setError(null)
 
-    if (!capturedImage || !imageFingerprint) {
-      setError('Please capture an image before adding to collection')
+    if (!capturedImage || !imageFingerprint || !remoteImageUrl) {
+      setError('Please capture or upload an image before adding to collection')
       return
     }
 
     try {
       await db.addItem({
         ...itemDetails,
-        image256: capturedImage,
         fingerprint: imageFingerprint,
-        ...(remoteImageUrl ? { remoteUrl: remoteImageUrl } : {})
+        photoUrl: remoteImageUrl,
       })
 
-      clearItemDetails();
-      clearImage()
-      onOpenChange(false)
-      onItemAdded()
+      // clearItemDetails();
+      // clearImage()
+      // onOpenChange(false)
+      // onItemAdded()
     } catch (error) {
       console.error('Error adding item:', error)
       // Keep user-facing error message stable for tests / UX
@@ -250,119 +251,134 @@ export function AddItemModal({ isOpen, onOpenChange, onItemAdded, db }: AddItemM
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] sm:w-[500px] max-h-[90vh] overflow-hidden overflow-y-auto flex flex-col" >
         <DialogHeader>
           <DialogTitle>Add to Collection</DialogTitle>
           <DialogDescription>Add a new item to your collection. Fill in the details below.</DialogDescription>
         </DialogHeader>
+        <div>
 
-        {error && (
-          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-            {error}
+          {error && (
+            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
+          <div className="flex flex-col w-full flex-1">
+            <Input
+              id="name"
+              name="name"
+              value={itemDetails.name}
+              onChange={(e) => setItemName(e.currentTarget.value)}
+              className="col-span-3"
+              placeholder="Enter item name"
+            />
+            <Input
+              id="tags"
+              name="tags"
+              value={itemDetails.description}
+              onChange={(e) => setItemDescription(e.currentTarget.value.toLowerCase())}
+              className="col-span-3 mt-2"
+              placeholder="Search tags"
+              inputMode="text"
+              pattern="[a-z0-9]+"
+              size={10}
+            />
+            <div className="flex flex-row flex-nowrap mt-2 overflow-x-auto w-full flex-1 pb-2 gap-3">
+
+              {/* <Badge>tag1</Badge><Badge>tag1</Badge><Badge>tag1</Badge>
+              <Badge>tag1</Badge><Badge>tag1</Badge><Badge>tag1</Badge> */}
+            </div>
           </div>
-        )}
-        <div className="flex flex-col">
-          <Input
-            id="name"
-            value={itemDetails.name}
-            onChange={(e: any) => setItemName(e.currentTarget.value)}
-            className="col-span-3"
-            placeholder="Enter item name"
-          />
-          <Input
-            id="description"
-            value={itemDetails.description}
-            onChange={(e: any) => setItemDescription(e.currentTarget.value)}
-            className="col-span-3 mt-2"
-            placeholder="Enter item description"
-          />
-        </div>
-        <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4">
 
-          <div className="col-span-4 space-y-2">
-            <Label>Photo</Label>
-            {!capturedImage && !isCameraActive && (
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={startCamera} className="flex-1">
-                  <Camera className="w-4 h-4 mr-2" />
-                  Take Photo
-                </Button>
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
-            )}
-
-            {isCameraActive && (
-              <div className="space-y-2">
-                <video
-                  ref={videoRefCallback}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full rounded-md border bg-black"
-                  style={{ minHeight: '200px' }}
-                />
+            <div className="col-span-4 space-y-2">
+              <Label>Photo</Label>
+              {!capturedImage && !isCameraActive && (
                 <div className="flex gap-2">
-                  <Button type="button" onClick={capturePhoto} className="flex-1">
-                    Capture
+                  <Button type="button" variant="outline" onClick={startCamera} className="flex-1">
+                    <Camera className="w-4 h-4 mr-2" />
+                    Take Photo
                   </Button>
-                  <Button type="button" variant="outline" onClick={stopCamera} className="flex-1">
-                    Cancel
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload
                   </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
                 </div>
-              </div>
-            )}
+              )}
 
-            {capturedImage && (
-              <div className="space-y-2">
-                <div className="flex gap-4 justify-center">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">256x256</p>
-                    <canvas ref={previewCanvasRef}
-                      width={256}
-                      height={256}
-                      className="rounded-md border bg-black"
-                    />
+              {isCameraActive && (
+                <div className="space-y-2">
+                  <video
+                    ref={videoRefCallback}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full rounded-md border bg-black"
+                    style={{ minHeight: '200px' }}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={capturePhoto} className="flex-1">
+                      Capture
+                    </Button>
+                    <Button type="button" variant="outline" onClick={stopCamera} className="flex-1">
+                      Cancel
+                    </Button>
                   </div>
-                  {fingerprintCanvas && (
+                </div>
+              )}
+
+              {capturedImage && (
+                <div className="space-y-2">
+                  <div className="flex gap-4 justify-center">
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Fingerprint (32x32)</p>
-                      <img
-                        src={fingerprintCanvas}
-                        alt="Fingerprint"
-                        width={64}
-                        height={64}
+                      <p className="text-sm text-muted-foreground mb-2">256x256</p>
+                      <canvas ref={previewCanvasRef}
+                        width={256}
+                        height={256}
                         className="rounded-md border bg-black"
-                        style={{ imageRendering: 'pixelated' }}
                       />
                     </div>
+                    {fingerprintCanvas && (
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Fingerprint (32x32)</p>
+                        <img
+                          src={fingerprintCanvas}
+                          alt="Fingerprint"
+                          width={64}
+                          height={64}
+                          className="rounded-md border bg-black"
+                          style={{ imageRendering: 'pixelated' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <Button type="button" variant="outline" onClick={clearImage} className="w-full">
+                    <X className="w-4 h-4 mr-2" />
+                    Remove Photo
+                  </Button>
+                  {uploadStatus === 'uploading' && (
+                    <div className="text-xs text-muted-foreground text-center mt-1">Uploading…</div>
+                  )}
+                  {uploadStatus === 'done' && remoteImageUrl && (
+                    <div className="text-xs text-muted-foreground text-center mt-1">Uploaded ✓</div>
                   )}
                 </div>
-                <Button type="button" variant="outline" onClick={clearImage} className="w-full">
-                  <X className="w-4 h-4 mr-2" />
-                  Remove Photo
-                </Button>
-                {uploadStatus === 'uploading' && (
-                  <div className="text-xs text-muted-foreground text-center mt-1">Uploading…</div>
-                )}
-                {uploadStatus === 'done' && remoteImageUrl && (
-                  <div className="text-xs text-muted-foreground text-center mt-1">Uploaded ✓</div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
         <DialogFooter>
+          <Button variant="ghost" onClick={handleClose}>
+            Cancel
+          </Button>
           <Button type="submit" onClick={handleAddItem}>
             Add Item
           </Button>
