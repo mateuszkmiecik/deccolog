@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const catalog = pgTable("catalogs", {
   id: serial("id").primaryKey(),
@@ -14,6 +14,7 @@ export const items = pgTable("items", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   tags: text("tags").array().notNull().default([]),
   fingerprint: text("fingerprint").notNull(),
+  fingerprint_bigint: bigint({ mode: "bigint" }),
   photoUrl: text("photo_url"),
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "items" ADD COLUMN "fingerprint_bigint" bigint;
