@@ -43,6 +43,13 @@
       "when": 1764466068433,
       "tag": "0005_powerful_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1764628217306,
+      "tag": "0006_loud_kree",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { bigint, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, integer, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const catalog = pgTable("catalogs", {
   id: serial("id").primaryKey(),
@@ -22,4 +22,11 @@ export const tags = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   catalogId: integer("catalog_id").references(() => catalog.id),
-})
+});
+
+export const itemsTags = pgTable("items_tags", {
+  itemId: integer("item_id").notNull().references(() => items.id),
+  tagId: integer("tag_id").notNull().references(() => tags.id),
+}, t => [
+  primaryKey({ columns: [t.itemId, t.tagId] })
+])
