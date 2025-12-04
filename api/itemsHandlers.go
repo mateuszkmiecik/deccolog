@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type PostNewItemPayload struct {
 	Name        string `json:"name"`
 	Fingerprint string `json:"fingerprint"`
 	PhotoUrl    string `json:"photoUrl"`
+	Tags        []int  `json:"tags"`
 }
 
 func getItemPayloadFromBody(b io.ReadCloser) (PostNewItemPayload, error) {
@@ -27,6 +30,11 @@ func checkNewItemValidity(payload PostNewItemPayload) bool {
 
 func createItemsCollectionHandler(d DBService) CollectionRequestHandler {
 	return func(w http.ResponseWriter, r *http.Request, catalogId int) {
+
+		// Use a timeout context for the DB operation
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
 		if r.Method == "GET" {
 			items, err := d.getAllItems(catalogId)
 			if err != nil {
@@ -51,11 +59,11 @@ func createItemsCollectionHandler(d DBService) CollectionRequestHandler {
 				http.Error(w, "Item is invalid", http.StatusBadRequest)
 				return
 			}
-			fmt.Println(newItemPayload)
-			id, err := d.createNewItem(newItemPayload, catalogId)
+
+			id, err := d.CreateNewItem(newItemPayload, catalogId, ctx)
 			if err != nil {
 				fmt.Println(err)
-				http.Error(w, "There was a problem with parsing body", http.StatusBadRequest)
+				http.Error(w, "createItemsCollectionHandler: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 			json.NewEncoder(w).Encode(id)

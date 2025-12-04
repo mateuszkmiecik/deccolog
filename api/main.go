@@ -166,6 +166,7 @@ func extractCatalogId(payload string) int {
 }
 func createApiHandler(d DBService) http.HandlerFunc {
 	itemsHandler := createCollectionHandler("/api/items", createItemsCollectionHandler(d), createItemsResourceHandler(d))
+	tagsCollectionHandler := createCollectionHandler("/api/tags", createTagsCollectionHandler(d), createTagsResourceHandler(d))
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var claims *jwt.RegisteredClaims
@@ -179,13 +180,17 @@ func createApiHandler(d DBService) http.HandlerFunc {
 		}
 		catalogId := extractCatalogId(claims.Subject)
 		if catalogId <= 0 {
-			fmt.Fprintf(w, "Bad request", http.StatusBadRequest)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
-		fmt.Println(claims.Subject)
 
 		if strings.HasPrefix(r.URL.Path, "/api/items") {
 			itemsHandler(w, r, catalogId)
+			return
+		}
+
+		if strings.HasPrefix(r.URL.Path, "/api/tags") {
+			tagsCollectionHandler(w, r, catalogId)
 			return
 		}
 
