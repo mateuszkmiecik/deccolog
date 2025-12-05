@@ -4,11 +4,12 @@ import { CollectionDB } from "@/lib/db";
 import { ItemList } from "@/components/ItemList";
 import { AddItemModal } from "@/components/AddItemModal";
 import { SearchModal } from "@/components/SearchModal";
-import { Loader2Icon, PlusIcon, SearchIcon } from "lucide-preact";
+import { CameraIcon, Loader2Icon, PlusIcon, SearchIcon, XIcon } from "lucide-preact";
 
 import logo from "@/assets/image.jpeg";
 import { Button } from "./components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Input } from "./components/ui/input";
 
 const db = new CollectionDB();
 
@@ -16,11 +17,15 @@ export function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const { data: items, isLoading, error } = useQuery({
-    queryKey: ['items'],
+  const {
+    data: items,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["items"],
     queryFn: () => db.getAllItems(),
     retry: false,
-  })
+  });
 
   useEffect(() => {
     if (error) {
@@ -29,12 +34,11 @@ export function App() {
         window.location.href = "/login";
       }
     }
-  }, [error])
-
+  }, [error]);
 
   const queryClient = useQueryClient();
   const handleItemAdded = async () => {
-    queryClient.invalidateQueries({ queryKey: ['items'] })
+    queryClient.invalidateQueries({ queryKey: ["items"] });
   };
 
   return (
@@ -44,7 +48,12 @@ export function App() {
           <img src={logo} className="w-[200px]" />
         </div>
         <div className="flex-1">
-          {!items || isLoading ? <Loader2Icon className="animate-spin mx-auto" /> : <ItemList items={items} />}
+          {!!items && !isLoading && <SearchBox />}
+          {!items || isLoading ? (
+            <Loader2Icon className="animate-spin mx-auto" />
+          ) : (
+            <ItemList items={items} />
+          )}
         </div>
         {/* empty spacer for buttons */}
         <div className="h-8"></div>
@@ -67,10 +76,7 @@ export function App() {
         <PlusIcon className="w-4 h-4 mr-3" /> Add
       </Button>
 
-      <SearchModal
-        isOpen={isSearchOpen}
-        onOpenChange={setIsSearchOpen}
-      />
+      <SearchModal isOpen={isSearchOpen} onOpenChange={setIsSearchOpen} />
 
       <AddItemModal
         isOpen={isModalOpen}
@@ -78,6 +84,24 @@ export function App() {
         onItemAdded={handleItemAdded}
         db={db!}
       />
+    </div>
+  );
+}
+
+function SearchBox() {
+  return (
+    <div className="flex items-center justify-center mb-8 sticky top-2  z-10">
+      <div className="flex items-center gap-2 rounded-full border border-gray-200 shadow-md bg-white p-2 px-4">
+        <SearchIcon className="w-4 h-4 mx-2" />
+        <Input
+          type="text"
+          placeholder="Search"
+          className="w-auto rounded-full border-none bg-transparent"
+        />
+        <Button variant="outline" className="rounded-full" size="icon">
+          <CameraIcon className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
