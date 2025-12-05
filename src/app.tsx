@@ -1,137 +1,121 @@
-import { useState, useEffect } from "preact/hooks";
-import { CollectionDB } from "@/lib/db";
+import { useState, useEffect, useMemo } from "preact/hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2Icon, PlusIcon, SearchIcon } from "lucide-preact";
 
+import { CollectionDB } from "@/lib/db";
+import type { CollectionItem } from "@/types";
 import { ItemList } from "@/components/ItemList";
 import { AddItemModal } from "@/components/AddItemModal";
 import { SearchModal } from "@/components/SearchModal";
-import { CameraIcon, Loader2Icon, PlusIcon, SearchIcon, XIcon } from "lucide-preact";
-
+import { SearchBox } from "@/components/SearchBox";
+import { Button } from "@/components/ui/button";
 import logo from "@/assets/image.jpeg";
-import { Button } from "./components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Input } from "./components/ui/input";
 
 const db = new CollectionDB();
 
+function filterItems(items: CollectionItem[], query: string): CollectionItem[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return items;
+
+  return items.filter((item) => {
+    const nameMatches = item.name.toLowerCase().includes(normalizedQuery);
+    const tagMatches = item.tags?.some((tag) =>
+      tag.name.toLowerCase().includes(normalizedQuery)
+    );
+    return nameMatches || tagMatches;
+  });
+}
+
 export function App() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const {
-    data: items,
-    isLoading,
-    error,
-  } = useQuery({
+  const queryClient = useQueryClient();
+
+  const { data: items, isLoading, error } = useQuery({
     queryKey: ["items"],
     queryFn: () => db.getAllItems(),
     retry: false,
   });
 
-  const filteredItems = items?.filter((item) => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase();
-    const nameMatches = item.name.toLowerCase().includes(query);
-    const tagMatches = item.tags?.some((tag) => tag.name.toLowerCase().includes(query));
-    
-    return nameMatches || tagMatches;
-  });
+  const filteredItems = useMemo(
+    () => (items ? filterItems(items, searchQuery) : []),
+    [items, searchQuery]
+  );
 
   useEffect(() => {
-    if (error) {
-      const isUnauthorized = error.message.includes("401");
-      if (isUnauthorized) {
-        window.location.href = "/login";
-      }
+    const isUnauthorized = error?.message.includes("401");
+    if (isUnauthorized) {
+      window.location.href = "/login";
     }
   }, [error]);
 
-  const queryClient = useQueryClient();
-  const handleItemAdded = async () => {
+  const handleItemAdded = () => {
     queryClient.invalidateQueries({ queryKey: ["items"] });
   };
+
+  const isReady = items && !isLoading;
 
   return (
     <div className="flex h-dvh flex-col items-start justify-start w-screen overflow-auto">
       <div className="p-3 mx-auto max-w-2xl w-full lg:max-w-5xl">
-        <div className="mx-auto flex items-center justify-center mb-4">
-          <img src={logo} className="w-[200px]" />
-        </div>
-        <div className="flex-1">
-          {!!items && !isLoading && (
-            <SearchBox value={searchQuery} onChange={setSearchQuery} />
-          )}
-          {!items || isLoading ? (
-            <Loader2Icon className="animate-spin mx-auto" />
+        <header className="mx-auto flex items-center justify-center mb-4">
+          <img src={logo} alt="Logo" className="w-[200px]" />
+        </header>
+
+        <main className="flex-1">
+          {isReady && <SearchBox value={searchQuery} onChange={setSearchQuery} />}
+          {isReady ? (
+            <ItemList items={filteredItems} />
           ) : (
-            <ItemList items={filteredItems!} />
+            <Loader2Icon className="animate-spin mx-auto" />
           )}
-        </div>
-        {/* empty spacer for buttons */}
-        <div className="h-8"></div>
+        </main>
+
+        <div className="h-8" />
       </div>
 
-      {/* Fixed search button */}
-      <button
-        onClick={() => setIsSearchOpen(true)}
-        className="fixed bottom-6 left-6 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg hover:bg-secondary/90 hover:scale-105 transition-all duration-200"
-      >
-        <SearchIcon />
-      </button>
+      <FloatingActions
+        onSearchClick={() => setIsSearchModalOpen(true)}
+        onAddClick={() => setIsAddModalOpen(true)}
+      />
 
-      {/* Fixed plus button with modal */}
-      <Button
-        onClick={() => setIsModalOpen(true)}
-        variant="secondary"
-        className="fixed bottom-6 right-6 flex items-center justify-center bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200"
-      >
-        <PlusIcon className="w-4 h-4 mr-3" /> Add
-      </Button>
-
-      <SearchModal isOpen={isSearchOpen} onOpenChange={setIsSearchOpen} />
-
+      <SearchModal isOpen={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
       <AddItemModal
-        isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        isOpen={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
         onItemAdded={handleItemAdded}
-        db={db!}
+        db={db}
       />
     </div>
   );
 }
 
-interface SearchBoxProps {
-  value: string;
-  onChange: (value: string) => void;
+interface FloatingActionsProps {
+  onSearchClick: () => void;
+  onAddClick: () => void;
 }
 
-function SearchBox({ value, onChange }: SearchBoxProps) {
+function FloatingActions({ onSearchClick, onAddClick }: FloatingActionsProps) {
+  const baseStyles =
+    "fixed bottom-6 flex items-center justify-center shadow-lg hover:scale-105 transition-all duration-200";
+
   return (
-    <div className="flex items-center justify-center mb-8 sticky top-2 z-10">
-      <div className="flex items-center gap-2 rounded-full border border-gray-200 shadow-md bg-white p-2 px-4">
-        <SearchIcon className="w-4 h-4 mx-2" />
-        <Input
-          type="text"
-          placeholder="Search by name or tags..."
-          value={value}
-          onInput={(e) => onChange((e.target as HTMLInputElement).value)}
-          className="w-auto rounded-full border-none bg-transparent"
-        />
-        {value && (
-          <Button
-            variant="ghost"
-            className="rounded-full h-8 w-8 p-0"
-            size="icon"
-            onClick={() => onChange("")}
-          >
-            <XIcon className="w-4 h-4" />
-          </Button>
-        )}
-        <Button variant="outline" className="rounded-full" size="icon">
-          <CameraIcon className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
+    <>
+      <button
+        onClick={onSearchClick}
+        className={`${baseStyles} left-6 h-14 w-14 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/90`}
+      >
+        <SearchIcon />
+      </button>
+      <Button
+        onClick={onAddClick}
+        className={`${baseStyles} right-6 bg-primary text-primary-foreground hover:bg-primary/90`}
+      >
+        <PlusIcon className="w-4 h-4 mr-2" />
+        Add
+      </Button>
+    </>
   );
 }
