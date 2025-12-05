@@ -58,24 +58,86 @@ type Item struct {
 }
 
 func (c DBService) getAllItems(catalogId int) ([]Item, error) {
-	result, err := c.DB.Query("select id, name, fingerprint, photo_url, created_at from items where catalog_id = $1", catalogId)
+	query := `
+		SELECT i.id, i.name, i.fingerprint, i.photo_url, i.created_at, t.id, t.name
+		FROM items i
+		LEFT JOIN items_tags it ON i.id = it.item_id
+		LEFT JOIN tags t ON it.tag_id = t.id
+		WHERE i.catalog_id = $1
+		ORDER BY i.id, t.name
+	`
+	result, err := c.DB.Query(query, catalogId)
 	if err != nil {
 		return []Item{}, err
 	}
 	defer result.Close()
-	// colTypes, err := result.ColumnTypes()
-	// for c := colTypes {
-	// 	fmt.Println(c)
-	// }
-	var items = []Item{}
+
+	// Use a map to group tags by item ID
+	itemsMap := make(map[int]*Item)
+	var itemOrder []int
 
 	for result.Next() {
-		var i Item
-		result.Scan(&i.Id, &i.Name, &i.FingerPrint, &i.PhotoUrl, &i.CreatedAt)
-		items = append(items, i)
+		var itemId int
+		var name, fingerprint string
+		var photoUrl sql.NullString
+		var createdAt time.Time
+		var tagId sql.NullInt64
+		var tagName sql.NullString
+
+		if err := result.Scan(&itemId, &name, &fingerprint, &photoUrl, &createdAt, &tagId, &tagName); err != nil {
+			return []Item{}, err
+		}
+
+		item, exists := itemsMap[itemId]
+		if !exists {
+			item = &Item{
+				Id:          itemId,
+				Name:        name,
+				FingerPrint: fingerprint,
+				PhotoUrl:    photoUrl.String,
+				CreatedAt:   createdAt,
+				Tags:        []TagItem{},
+			}
+			itemsMap[itemId] = item
+			itemOrder = append(itemOrder, itemId)
+		}
+
+		if tagId.Valid && tagName.Valid {
+			item.Tags = append(item.Tags, TagItem{Id: tagId.Int64, Name: tagName.String})
+		}
+	}
+
+	// Build result slice preserving order
+	items := make([]Item, 0, len(itemOrder))
+	for _, id := range itemOrder {
+		items = append(items, *itemsMap[id])
 	}
 
 	return items, nil
+}
+
+func (c DBService) getTagsForItem(itemId int) ([]TagItem, error) {
+	result, err := c.DB.Query(`
+		SELECT t.id, t.name 
+		FROM tags t 
+		INNER JOIN items_tags it ON t.id = it.tag_id 
+		WHERE it.item_id = $1
+		ORDER BY t.name
+	`, itemId)
+	if err != nil {
+		return []TagItem{}, err
+	}
+	defer result.Close()
+
+	var tags = []TagItem{}
+	for result.Next() {
+		var tag TagItem
+		if err := result.Scan(&tag.Id, &tag.Name); err != nil {
+			return []TagItem{}, err
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
 }
 
 func fail(err error) (int64, error) {
@@ -98,19 +160,18 @@ func (c DBService) CreateNewItem(payload PostNewItemPayload, catalogId int, ctx 
 		return fail(err)
 	}
 
-	if err := c.DB.QueryRow(insertStmt, payload.Name, payload.Fingerprint, catalogId, payload.PhotoUrl, fingerPrintBigInt).Scan(&itemID); err != nil {
+	if err := tx.QueryRowContext(ctx, insertStmt, payload.Name, payload.Fingerprint, catalogId, payload.PhotoUrl, fingerPrintBigInt).Scan(&itemID); err != nil {
 		fmt.Println(err)
 		return itemID, err
 	}
 
 	for _, t := range payload.Tags {
 		var tID int64
-		// check if tag exists
-
-		query := `SELECT id from tags where id = $1`
-		err := tx.QueryRowContext(ctx, query, t).Scan(&tID)
+		// Verify tag exists and belongs to the same catalog
+		query := `SELECT id FROM tags WHERE id = $1 AND catalog_id = $2`
+		err := tx.QueryRowContext(ctx, query, t, catalogId).Scan(&tID)
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("tag id %d does not exist", t)
+			return 0, fmt.Errorf("tag id %d does not exist in catalog", t)
 		}
 		if err != nil {
 			return 0, fmt.Errorf("lookup tag: %w", err)
@@ -121,7 +182,6 @@ func (c DBService) CreateNewItem(payload PostNewItemPayload, catalogId int, ctx 
 		if err != nil {
 			return 0, fmt.Errorf("insert join: %w", err)
 		}
-
 	}
 
 	// Commit the transaction.
@@ -183,12 +243,12 @@ type TagItem struct {
 	Name string `json:"name"`
 }
 
-func (c DBService) GetItemByName(name string) (int64, error) {
+func (c DBService) GetTagByNameInCatalog(catalogId int, name string) (int64, error) {
 	var tagID int64
-	query := `SELECT id FROM tags WHERE name = $1`
-	err := c.DB.QueryRow(query, name).Scan(&tagID)
+	query := `SELECT id FROM tags WHERE name = $1 AND catalog_id = $2`
+	err := c.DB.QueryRow(query, name, catalogId).Scan(&tagID)
 	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("tag with name %s does not exist", name)
+		return 0, fmt.Errorf("tag with name %s does not exist in catalog", name)
 	}
 	if err != nil {
 		return 0, fmt.Errorf("lookup tag: %w", err)
@@ -197,7 +257,7 @@ func (c DBService) GetItemByName(name string) (int64, error) {
 }
 
 func (c DBService) InsertNewTag(catalogId int, tagName string) (int64, error) {
-	existingID, err := c.GetItemByName(tagName)
+	existingID, err := c.GetTagByNameInCatalog(catalogId, tagName)
 
 	if err == nil {
 		return existingID, nil
@@ -206,4 +266,51 @@ func (c DBService) InsertNewTag(catalogId int, tagName string) (int64, error) {
 	var id int64
 	err = c.DB.QueryRow("INSERT into tags(catalog_id, name) VALUES ($1, $2) returning id", catalogId, tagName).Scan(&id)
 	return id, err
+}
+
+func (c DBService) UpdateItemTags(itemId int, catalogId int, tagIds []int, ctx context.Context) error {
+	tx, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("UpdateItemTags begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Verify item belongs to catalog
+	var existingItemId int
+	err = tx.QueryRowContext(ctx, "SELECT id FROM items WHERE id = $1 AND catalog_id = $2", itemId, catalogId).Scan(&existingItemId)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("item %d not found in catalog %d", itemId, catalogId)
+	}
+	if err != nil {
+		return fmt.Errorf("UpdateItemTags verify item: %w", err)
+	}
+
+	// Delete existing tags for this item
+	_, err = tx.ExecContext(ctx, "DELETE FROM items_tags WHERE item_id = $1", itemId)
+	if err != nil {
+		return fmt.Errorf("UpdateItemTags delete existing: %w", err)
+	}
+
+	// Insert new tags
+	for _, tagId := range tagIds {
+		// Verify tag exists and belongs to the same catalog
+		var tID int64
+		err := tx.QueryRowContext(ctx, "SELECT id FROM tags WHERE id = $1 AND catalog_id = $2", tagId, catalogId).Scan(&tID)
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("tag id %d does not exist in catalog", tagId)
+		}
+		if err != nil {
+			return fmt.Errorf("UpdateItemTags lookup tag: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, "INSERT INTO items_tags(item_id, tag_id) VALUES($1, $2)", itemId, tagId)
+		if err != nil {
+			return fmt.Errorf("UpdateItemTags insert join: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("UpdateItemTags commit: %w", err)
+	}
+	return nil
 }

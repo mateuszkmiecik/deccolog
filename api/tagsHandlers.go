@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -43,8 +44,11 @@ func createTagsResourceHandler(d DBService) ResourceRequestHandler {
 }
 
 func createTagHandler(w http.ResponseWriter, r *http.Request, catalogId int, d DBService) {
-	body := make([]byte, r.ContentLength)
-	r.Body.Read(body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
 	tagName := string(body)
 
 	id, err := d.InsertNewTag(catalogId, tagName)

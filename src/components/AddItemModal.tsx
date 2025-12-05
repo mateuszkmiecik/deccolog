@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera, X, Upload, PlusIcon } from "lucide-preact";
+import { Camera, X, Upload } from "lucide-preact";
 import { CollectionDB } from "@/lib/db";
 import { useCamera } from "@/hooks/useCamera";
 import { useImageProcessing } from "@/hooks/useImageProcessing";
 import { useUploader } from "@/hooks/useUploader";
-import { useTags, type TagItem } from "@/hooks/useTags";
-import { Badge } from "./ui/badge";
+import { useTags } from "@/hooks/useTags";
+import { TagsInput } from "./TagsInput";
 import { Checkbox } from "./ui/checkbox";
 import { toast } from "sonner";
 
@@ -145,8 +145,6 @@ export function AddItemModal({ isOpen, onOpenChange, db, onItemAdded }: AddItemM
     description: string;
   }>({ name: "", description: "" });
   const [error, setError] = useState<string | null>(null);
-  const [tagInput, setTagInput] = useState("");
-  const tagInputRef = useRef<HTMLInputElement | null>(null);
 
   const clearItemDetails = () => setItemDetails({ name: "", description: "" });
   const setItemName = (name: string) => setItemDetails((d) => ({ ...d, name }));
@@ -263,7 +261,7 @@ export function AddItemModal({ isOpen, onOpenChange, db, onItemAdded }: AddItemM
         ...itemDetails,
         fingerprint: imageFingerprint,
         photoUrl: remoteImageUrl,
-        tags: selectedTags.map((t) => t.id),
+        tags: selectedTags,
       });
 
       toast.success("Item added to collection");
@@ -287,22 +285,8 @@ export function AddItemModal({ isOpen, onOpenChange, db, onItemAdded }: AddItemM
     clearItemDetails();
     clearImage();
     clearTags();
-    setTagInput("");
     stopCamera();
-  };
-
-  const handleTagInputChange = (value: string) => {
-    setTagInput(value);
-    setTagInputValue(value);
-  };
-
-  const handleTagSelect = (tag: TagItem) => {
-    addTag(tag);
-    setTagInput("");
-  };
-
-  const handleTagRemove = (tag: TagItem) => {
-    removeTag(tag);
+    onOpenChange(false);
   };
 
   // Draw capturedImage into the preview canvas when it changes
@@ -337,7 +321,7 @@ export function AddItemModal({ isOpen, onOpenChange, db, onItemAdded }: AddItemM
               {error}
             </div>
           )}
-          <div className="flex flex-col w-full flex-1">
+          <div className="flex flex-col w-full flex-1 gap-2">
             <Input
               id="name"
               name="name"
@@ -346,65 +330,17 @@ export function AddItemModal({ isOpen, onOpenChange, db, onItemAdded }: AddItemM
               className="col-span-3"
               placeholder="Enter item name"
             />
-            <Input
-              id="tags"
-              name="tags"
-              ref={tagInputRef}
-              value={tagInput}
-              onChange={(e) =>
-                handleTagInputChange(e.currentTarget.value.toLowerCase())
-              }
-              className="col-span-3 mt-2"
+            <TagsInput
+              selectedTags={selectedTags}
+              onTagAdd={addTag}
+              onTagRemove={removeTag}
+              onNewTagCreate={saveAndAddTag}
+              tagSuggestions={tagSuggestions}
+              isLoading={isLoading}
+              fetchQuery={fetchQuery}
+              onInputChange={setTagInputValue}
               placeholder="Search tags"
-              inputMode="text"
-              size={10}
             />
-            <div className="relative mt-1 flex gap-1 py-2">
-              {selectedTags.map((tag) => (
-                <Badge
-                  key={tag.id}
-                  variant="secondary"
-                  className="flex items-center gap-1 cursor-pointer"
-                  onClick={() => {
-                    handleTagRemove(tag);
-                    tagInputRef.current?.focus();
-                  }}
-                >
-                  {tag.name}
-                  <X className="w-3 h-3" />
-                </Badge>
-              ))}
-              {tagSuggestions.length > 0 &&
-                tagSuggestions
-                  .filter(
-                    (t) => !selectedTags.map((st) => st.id).includes(t.id)
-                  )
-                  .map((tag) => (
-                    <Badge
-                      key={tag.id}
-                      className="cursor-pointer border-primary"
-                      variant="outline"
-                      onClick={() => {
-                        handleTagSelect(tag);
-                        tagInputRef.current?.focus();
-                      }}
-                    >
-                      {tag.name}
-                    </Badge>
-                  ))}
-              {tagInput.length > 0 &&
-                tagInput === fetchQuery &&
-                tagSuggestions &&
-                !isLoading &&
-                tagSuggestions?.every((v) => v.name !== tagInput) && (
-                  <Badge
-                    className="cursor-pointer px-1 pr-2"
-                    onClick={() => saveAndAddTag(tagInput)}
-                  >
-                    <PlusIcon size={16} className="mr-1" /> {tagInput}
-                  </Badge>
-                )}
-            </div>
           </div>
           <div className="grid gap-4 py-4">
             <div className="col-span-4 space-y-2">

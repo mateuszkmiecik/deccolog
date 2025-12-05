@@ -1,9 +1,14 @@
+export interface TagInfo {
+  id: number
+  name: string
+}
+
 export interface CollectionItem {
   readonly id: number
   name: string
   photoUrl: string
   fingerprint: string
-  tags?: number[]
+  tags?: TagInfo[]
   readonly createdAt: number
 }
 

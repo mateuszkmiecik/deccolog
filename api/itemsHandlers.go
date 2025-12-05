@@ -16,6 +16,10 @@ type PostNewItemPayload struct {
 	Tags        []int  `json:"tags"`
 }
 
+type UpdateItemTagsPayload struct {
+	Tags []int `json:"tags"`
+}
+
 func getItemPayloadFromBody(b io.ReadCloser) (PostNewItemPayload, error) {
 	var p PostNewItemPayload
 	if err := json.NewDecoder(b).Decode(&p); err != nil {
@@ -74,6 +78,27 @@ func createItemsCollectionHandler(d DBService) CollectionRequestHandler {
 
 func createItemsResourceHandler(d DBService) ResourceRequestHandler {
 	return func(w http.ResponseWriter, r *http.Request, catalogId int, id int) {
-		println("resource request", id)
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		if r.Method == "PUT" {
+			var payload UpdateItemTagsPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			if err := d.UpdateItemTags(id, catalogId, payload.Tags, ctx); err != nil {
+				fmt.Println(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			return
+		}
+
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }

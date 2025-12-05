@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'preact/hooks'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +11,9 @@ import { type CollectionItem } from '@/types'
 import { ItemCard } from './ItemCard'
 import { useCamera } from '@/hooks/useCamera'
 import { useImageProcessing } from '@/hooks/useImageProcessing'
-import { calculateSimilarity } from '@/lib/db'
+import { CollectionDB, calculateSimilarity } from '@/lib/db'
+
+const db = new CollectionDB()
 
 interface SearchModalProps {
   isOpen: boolean
@@ -25,7 +28,10 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
   const { capturedImage, imageFingerprint, fingerprintCanvas, processImage, clearImage } = useImageProcessing()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const items: CollectionItem[] = [];
+  const { data: items = [] } = useQuery({
+    queryKey: ['items'],
+    queryFn: () => db.getAllItems(),
+  })
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return []

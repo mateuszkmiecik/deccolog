@@ -21,7 +21,10 @@ class CollectionDB {
       const res = await fetch(this.baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
+        body: JSON.stringify({
+          ...item,
+          tags: item.tags?.map(t => t.id),
+        }),
       })
 
       if (!res.ok) {
@@ -109,6 +112,23 @@ class CollectionDB {
       }
     } catch (error) {
       throw new DatabaseError(`Delete item operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async updateItemTags(itemId: number, tagIds: number[]): Promise<void> {
+    try {
+      const res = await fetch(`${this.baseUrl}/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: tagIds }),
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new DatabaseError(`Failed to update item tags: ${res.status} ${res.statusText} ${text}`)
+      }
+    } catch (error) {
+      throw new DatabaseError(`Update item tags operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
