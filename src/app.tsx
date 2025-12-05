@@ -16,6 +16,7 @@ const db = new CollectionDB();
 export function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const {
     data: items,
@@ -25,6 +26,16 @@ export function App() {
     queryKey: ["items"],
     queryFn: () => db.getAllItems(),
     retry: false,
+  });
+
+  const filteredItems = items?.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const nameMatches = item.name.toLowerCase().includes(query);
+    const tagMatches = item.tags?.some((tag) => tag.name.toLowerCase().includes(query));
+    
+    return nameMatches || tagMatches;
   });
 
   useEffect(() => {
@@ -48,11 +59,13 @@ export function App() {
           <img src={logo} className="w-[200px]" />
         </div>
         <div className="flex-1">
-          {!!items && !isLoading && <SearchBox />}
+          {!!items && !isLoading && (
+            <SearchBox value={searchQuery} onChange={setSearchQuery} />
+          )}
           {!items || isLoading ? (
             <Loader2Icon className="animate-spin mx-auto" />
           ) : (
-            <ItemList items={items} />
+            <ItemList items={filteredItems!} />
           )}
         </div>
         {/* empty spacer for buttons */}
@@ -88,16 +101,33 @@ export function App() {
   );
 }
 
-function SearchBox() {
+interface SearchBoxProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function SearchBox({ value, onChange }: SearchBoxProps) {
   return (
-    <div className="flex items-center justify-center mb-8 sticky top-2  z-10">
+    <div className="flex items-center justify-center mb-8 sticky top-2 z-10">
       <div className="flex items-center gap-2 rounded-full border border-gray-200 shadow-md bg-white p-2 px-4">
         <SearchIcon className="w-4 h-4 mx-2" />
         <Input
           type="text"
-          placeholder="Search"
+          placeholder="Search by name or tags..."
+          value={value}
+          onInput={(e) => onChange((e.target as HTMLInputElement).value)}
           className="w-auto rounded-full border-none bg-transparent"
         />
+        {value && (
+          <Button
+            variant="ghost"
+            className="rounded-full h-8 w-8 p-0"
+            size="icon"
+            onClick={() => onChange("")}
+          >
+            <XIcon className="w-4 h-4" />
+          </Button>
+        )}
         <Button variant="outline" className="rounded-full" size="icon">
           <CameraIcon className="w-4 h-4" />
         </Button>
