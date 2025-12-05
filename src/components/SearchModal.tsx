@@ -15,22 +15,23 @@ import { calculateSimilarity } from '@/lib/db'
 interface SearchModalProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  items: CollectionItem[]
 }
 
-export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
+export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showCamera, setShowCamera] = useState(false);
-  
+
   const { isCameraActive, videoRef, startCamera, stopCamera } = useCamera()
   const { capturedImage, imageFingerprint, fingerprintCanvas, processImage, clearImage } = useImageProcessing()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
+  const items: CollectionItem[] = [];
+
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return []
-    
+
     const query = searchQuery.toLowerCase()
-    return items.filter(item => 
+    return items.filter(item =>
       item.name.toLowerCase().includes(query) ||
       item.description.toLowerCase().includes(query)
     )
@@ -38,16 +39,16 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
 
   const similarItems = useMemo(() => {
     if (!imageFingerprint) return []
-    
+
     const itemsWithSimilarity = items
       .map(item => ({
         ...item,
         similarity: calculateSimilarity(imageFingerprint as number[], item.fingerprint as number[])
       }))
-    
+
     // Find max Manhattan distance for normalization
     const maxManhattan = Math.max(...itemsWithSimilarity.map(item => item.similarity.manhattan))
-    
+
     // Add normalized match percentage
     return itemsWithSimilarity
       .map(item => ({
@@ -62,17 +63,17 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
       const video = videoRef.current
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
-      
+
       if (ctx) {
         canvas.width = 256
         canvas.height = 256
-        
+
         const videoAspect = video.videoWidth / video.videoHeight
         let drawWidth = 256
         let drawHeight = 256
         let offsetX = 0
         let offsetY = 0
-        
+
         if (videoAspect > 1) {
           drawHeight = 256 / videoAspect
           offsetY = (256 - drawHeight) / 2
@@ -80,13 +81,13 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
           drawWidth = 256 * videoAspect
           offsetX = (256 - drawWidth) / 2
         }
-        
+
         ctx.fillStyle = 'black'
         ctx.fillRect(0, 0, 256, 256)
         ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight)
-        
+
         const imageData = canvas.toDataURL('image/jpeg', 0.8)
-        
+
         await processImage(imageData)
         stopCamera()
         setShowCamera(false)
@@ -108,39 +109,39 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">        
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="search"
-                type="text"
-                placeholder="Search by name or description..."
-                value={searchQuery}
-                onChange={(e: any) => setSearchQuery(e.currentTarget.value)}
-                className="pl-10"
-                autoFocus
-              />
-              {searchQuery && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            <Button variant='outline' size="icon" onClick={toggleCameraSearch}>
-              <Camera />
-            </Button>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by name or description..."
+                  value={searchQuery}
+                  onChange={(e: any) => setSearchQuery(e.currentTarget.value)}
+                  className="pl-10"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <Button variant='outline' size="icon" onClick={toggleCameraSearch}>
+                <Camera />
+              </Button>
             </div>
           </div>
-          
+
           {showCamera && (
             <div className="space-y-2">
               {!capturedImage && !isCameraActive && (
@@ -153,7 +154,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
                   Start Camera
                 </Button>
               )}
-              
+
               {isCameraActive && (
                 <div className="space-y-2">
                   <video
@@ -176,7 +177,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
               )}
             </div>
           )}
-          
+
           {capturedImage && (
             <div className="space-y-2">
               <div className="flex gap-4 justify-center">
@@ -228,27 +229,27 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
               </Button>
             </div>
           )}
-          
+
           <div className="space-y-2">
             {searchQuery && (
               <p className="text-sm text-muted-foreground">
                 Found {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''} for "{searchQuery}"
               </p>
             )}
-            
+
             {similarItems.length > 0 && (
               <p className="text-sm text-muted-foreground">
                 All {similarItems.length} items ranked by similarity
               </p>
             )}
-            
+
             {filteredItems.length === 0 && searchQuery && similarItems.length === 0 && (
               <div className="text-center py-8">
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No items found matching your search.</p>
               </div>
             )}
-            
+
             {filteredItems.length > 0 && (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {filteredItems.map((item) => (
@@ -256,7 +257,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
                 ))}
               </div>
             )}
-            
+
             {similarItems.length > 0 && (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {similarItems.map((item, index) => (
@@ -296,7 +297,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
                 ))}
               </div>
             )}
-            
+
             {!searchQuery && similarItems.length === 0 && (
               <div className="text-center py-8">
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -305,7 +306,7 @@ export function SearchModal({ isOpen, onOpenChange, items }: SearchModalProps) {
             )}
           </div>
         </div>
-        
+
         {/* Hidden canvas for photo capture */}
         <canvas ref={canvasRef} className="hidden" />
       </DialogContent>

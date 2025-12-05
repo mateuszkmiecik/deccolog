@@ -18,7 +18,7 @@ export function ItemList({ items }: ItemListProps) {
             No items yet. Click the + button to add your first item!
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-4 w-full">
+          <div className="grid grid-cols-2 gap-4 w-full lg:grid-cols-3">
             {items.map((item) => (
               <ItemCard 
                 key={item.id} 

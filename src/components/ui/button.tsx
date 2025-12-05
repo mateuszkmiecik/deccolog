@@ -15,7 +15,7 @@ export function Button({
   const baseClasses = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
   
   const variants = {
-    default: "bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 border border-gray-500 rounded-lg shadow-lg shadow-inner transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75",
+    default: "bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 border border-gray-500 rounded-lg shadow-lg shadow-inner transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75",
     destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
     secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

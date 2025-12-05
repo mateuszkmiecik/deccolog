@@ -3,6 +3,7 @@ export interface CollectionItem {
   name: string
   photoUrl: string
   fingerprint: string
+  tags?: number[]
   readonly createdAt: number
 }
 

@@ -1,10 +1,10 @@
-import { type ComponentProps } from "preact"
+import { type ComponentProps, forwardRef } from "preact/compat"
 import { cn } from "@/lib/utils"
 
-export interface InputProps extends ComponentProps<"input"> {}
+export interface InputProps extends ComponentProps<"input"> { }
 
-export function Input({ className, type, ...props }: InputProps) {
-  return (
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => (
     <input
       type={type}
       className={cn(
@@ -12,6 +12,9 @@ export function Input({ className, type, ...props }: InputProps) {
         className
       )}
       {...props}
+      ref={ref}
     />
   )
-}
+)
+
+Input.displayName = "Input"
