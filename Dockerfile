@@ -16,7 +16,7 @@ COPY . .
 RUN bun run build
 
 # Stage 2: Build Go binary
-FROM golang:1.24-alpine AS go-builder
+FROM golang:alpine AS go-builder
 
 WORKDIR /app
 
